@@ -2,7 +2,8 @@ import { escapeHtml, $, html, raw, copyText, type SafeHtml, HtmlSafeString } fro
 import { linkTitle } from "../core/links.js";
 import { CLI, consoleUrl, rulesHtml, blockHeight } from "../providers/registry.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
-import { baseAddr } from "../core/parser.js";
+import { cfgKey, listRefs, RefRow } from "../core/references.js";
+import { modelSnapshot } from "../core/snapshot.js";
 import { changeHtml, reasonText, valText, sameVal } from "../core/diff.js";
 import { changedKeys, select, applySelection, drawEdges, ACTION_COLOR, icoSvg } from "./diagram.js";
 import { kindSource } from "../core/schema.js";
@@ -282,14 +283,29 @@ function renderPlanInfo(): void {
   paneHtml += sec("sections", "Plan sections",
               Object.keys(model.raw || {}).length, sectionRows(model.raw));
 
+  var snap = JSON.stringify(modelSnapshot(model), null, 2);
+  paneHtml += sec("model", "Parsed model", model.resources.length,
+              html`${note("What the viewer understood, not the file: each resource with its module, action and links, and which links only the saved state supplied. Attribute values are left out.")}
+                   ${copyBlock("parsed model", 'data-full="model"', html`<pre class="rawjson">${snap}</pre>`)}`);
+
   var rawJsonStr = model.raw ? JSON.stringify(model.raw, null, 2) : (model.rawText || "");
-  var shown = rawJsonStr.length > 200000 ? rawJsonStr.slice(0, 200000) + "\n\u2026 truncated" : rawJsonStr;
+  var RAW_CAP = 200000;
+  var shown = rawJsonStr.length > RAW_CAP
+    ? rawJsonStr.slice(0, RAW_CAP) + "\n\u2026 truncated: " + ((rawJsonStr.length - RAW_CAP) / 1024).toFixed(0) +
+      " KB more. Use copy for the whole file."
+    : rawJsonStr;
   paneHtml += sec("raw", "Raw JSON", (rawBytes/1024).toFixed(1) + " KB",
-              html`<pre class="rawjson">${shown}</pre>`);
+              copyBlock("raw JSON", 'data-full="raw"', html`<pre class="rawjson">${shown}</pre>`));
 
   if (!detailEl) detailEl = $("detail");
   if (detailEl) detailEl.innerHTML = paneHtml;
   wireSections();
+  /* these copy the whole text, even where the panel shows only the start of it */
+  if (detailEl) Array.prototype.slice.call(detailEl.querySelectorAll<HTMLElement>(".cli-copy[data-full]")).forEach(function(b: HTMLElement){
+    b.addEventListener("click", function(){
+      copyText(b.dataset.full === "model" ? snap : rawJsonStr, b);
+    });
+  });
   if (model.llmReview) {
     wireLlmReviewInteractivity(model.llmReview);
   }
@@ -329,17 +345,19 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
 
   {key:"deps", build: function(r: PlanResource){
     if (!r.refs.length) return null;
-    return {title:"Depends on", count:r.refs.length, body:addrList(r.refs)};
+    var rows = listRefs(r.refs, (state.model && state.model.byAddr) || {});
+    return {title:"Depends on", count:rows.length, body:addrList(rows)};
   }},
 
   {key:"refby", build: function(r: PlanResource){
     if (!r.dependents || !r.dependents.length) return null;
-    return {title:"Referenced by", count:r.dependents.length, body:addrList(r.dependents)};
+    return {title:"Referenced by", count:r.dependents.length,
+            body:addrList(r.dependents.map(function(a: string): RefRow { return {addr: a, inPlan: true}; }))};
   }},
 
   {key:"hcl", build: function(r: PlanResource, ctx: any){
     var model = state.model;
-    var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[baseAddr(r.addr)]);
+    var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[cfgKey(r.addr)]);
     if (!hcl) return null;
     ctx.hcl = hcl;
     var body = html`
@@ -397,11 +415,13 @@ function copyBlock(label: string, attr: string, inner: string | SafeHtml): SafeH
   `;
 }
 
-function addrList(addrs: string[]): SafeHtml {
+function addrList(rows: RefRow[]): SafeHtml {
   return html`
     <div class="reflist">
-      ${addrs.map(function(a: string){
-        return html`<a data-goto="${a}">${a}</a>`;
+      ${rows.map(function(x: RefRow){
+        return x.inPlan
+          ? html`<a data-goto="${x.addr}">${x.addr}</a>`
+          : html`<span class="ref-missing" title="not in this plan">${x.addr}</span>`;
       })}
     </div>
   `;

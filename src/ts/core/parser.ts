@@ -1,9 +1,10 @@
 // core/parser.ts — Plan JSON parser, validators and reference extractor
 import { escapeHtml } from "./util.js";
 import { REG, isProviderSupported, isForeignType } from "../providers/registry.js";
+import { buildConfigIndex, refsFor, addStateEdges, listRefs, moduleOf, ConfigIndex } from "./references.js";
 import {
   PlanModel, PlanResource, ActionType, TerraformPlanJson,
-  TerraformResourceChange, TerraformConfigurationResource, TerraformResourceDrift
+  TerraformResourceChange, TerraformResourceDrift
 } from "../types/index.js";
 
 function actionOf(actions?: string[]): ActionType {
@@ -43,9 +44,10 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
 
   if (!checkShape(plan, out)) return out;
   readProviders(plan, out);
-  readModules(plan, out);
-  var refs = readReferences(plan, out);
-  readResources(plan, out, refs);
+  var cfg = readConfiguration(plan, out);
+  readResources(plan, out, cfg);
+  normaliseRefs(out);
+  addStateEdges(plan, out.resources);
   reportUnsupported(out);
   linkDependents(out);
   readExtras(plan, out);
@@ -109,62 +111,29 @@ function readProviders(plan: TerraformPlanJson, out: PlanModel): void {
   });
 }
 
-function readModules(plan: TerraformPlanJson, out: PlanModel): void {
-  var rootCfg = (plan.configuration && plan.configuration.root_module) || {};
-  var calls = rootCfg.module_calls;
-  if (!calls) return;
-  Object.keys(calls).forEach(function(m: string){
-    out.diag!("warn", "module", "Nested module <b>module." + escapeHtml(m) + "</b> is not " +
-      "implemented yet \u2014 its resources are drawn flat, without the module boundary.");
-  });
-}
-
 /* Containment and dependencies both come from configuration expressions,
-   the only place the plan records them before apply. */
-function readReferences(plan: TerraformPlanJson, out: PlanModel): Record<string, string[]> {
+   the only place the plan records them before apply. The configuration is
+   nested by module; core/references.ts resolves it into qualified addresses. */
+function readConfiguration(plan: TerraformPlanJson, out: PlanModel): ConfigIndex {
   var rootCfg = (plan.configuration && plan.configuration.root_module) || {};
-  var index: Record<string, string[]> = {};
-
-  if (!rootCfg.resources){
+  if (!rootCfg.resources && !rootCfg.module_calls){
     out.diag!("warn", "no-config", "No <b>configuration</b> block in this plan \u2014 " +
       "relationships cannot be read, so everything is drawn at the top level. " +
       "Re-run <b>terraform show -json</b> on the plan file (not the state).");
-    return index;
   }
-
-  rootCfg.resources.forEach(function(r: TerraformConfigurationResource){
-    out.cfgByAddr[r.address] = r;
-    var refs: string[] = [];
-    function take(list?: string[]): void {
-      (list || []).forEach(function(ref: string){
-        if (typeof ref !== "string") return;
-        if (/^(var|local|each|count|data)\./.test(ref)) return;
-        var addr = ref.split(".").slice(0, 2).join(".");
-        if (addr.indexOf("aws_") === 0 && refs.indexOf(addr) < 0) refs.push(addr);
-      });
-    }
-    Object.keys(r.expressions || {}).forEach(function(k: string){
-      var e = (r.expressions as Record<string, any>)[k];
-      if (e && e.references){ take(e.references); return; }
-      if (!Array.isArray(e)) return;
-      e.forEach(function(item: any){                 /* repeated nested blocks */
-        if (!item || typeof item !== "object") return;
-        Object.keys(item).forEach(function(kk: string){
-          if (item[kk] && item[kk].references) take(item[kk].references);
-        });
-      });
-    });
-    take(r.depends_on);
-    index[r.address] = refs;
-  });
-  return index;
+  var idx = buildConfigIndex(plan);
+  out.cfgByAddr = idx.byKey;
+  return idx;
 }
 
-function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record<string, string[]>): void {
+function readResources(plan: TerraformPlanJson, out: PlanModel, cfg: ConfigIndex): void {
   var changes: (TerraformResourceChange | any)[] = Array.isArray(plan.resource_changes)
     ? plan.resource_changes
     : ((plan.planned_values && plan.planned_values.root_module &&
         plan.planned_values.root_module.resources) || []);
+
+  var allAddrs: string[] = changes.filter(function(rc: any){ return rc.mode !== "data"; })
+    .map(function(rc: any){ return rc.address; });
 
   changes.forEach(function(rc: any){
     if (rc.mode === "data") return;
@@ -181,11 +150,12 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record
       replacePaths: (rc.change && rc.change.replace_paths) || [],
       actionReason: rc.action_reason || null,
       spec: spec, supported: !foreign && !!spec, kind: spec ? spec.kind : "node",
-      /* configuration.root_module.resources keys a count/for_each resource
-         by its base address ("aws_subnet.public"), never the per-instance
-         address ("aws_subnet.public[0]") that resource_changes uses — strip
-         the instance key before looking up its references. */
-      refs: refIndex[baseAddr(rc.address)] || [],
+      /* the configuration keys a count/for_each resource by its base address
+         and a module's resources relative to the module, never the
+         per-instance qualified address resource_changes uses; refsFor joins
+         the two. */
+      module: rc.module_address || moduleOf(rc.address),
+      refs: refsFor(cfg, rc.address, allAddrs),
       foreign: foreign,
       enabledType: true,
       llmInsight: (out.llmReview && out.llmReview.resources && out.llmReview.resources[rc.address]) || null
@@ -193,6 +163,20 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, refIndex: Record
     out.resources.push(res);
     out.byAddr[res.addr] = res;
     out.typeCounts[rc.type] = (out.typeCounts[rc.type] || 0) + 1;
+  });
+}
+
+/* The configuration lists a reference at several levels of specificity (the
+   instance and the bare resource together), names resources the plan has no
+   instance of (a module's unused variant), and refers to a counted resource
+   without an index when it means all of it. Settle that once, so every link is
+   a real resource in this plan, listed once: duplicates collapse, what is not
+   in the plan goes, and a bare name becomes its instances. */
+function normaliseRefs(out: PlanModel): void {
+  out.resources.forEach(function(r: PlanResource){
+    r.refs = listRefs(r.refs, out.byAddr)
+      .filter(function(x){ return x.inPlan && x.addr !== r.addr; })
+      .map(function(x){ return x.addr; });
   });
 }
 
@@ -293,7 +277,7 @@ function summarise(plan: TerraformPlanJson, out: PlanModel): void {
 }
 
 export {
-  actionOf, baseAddr, parsePlan, checkShape, readProviders, readModules,
-  readReferences, readResources, reportUnsupported,
+  actionOf, baseAddr, parsePlan, checkShape, readProviders,
+  readConfiguration, readResources, reportUnsupported,
   linkDependents, readExtras, summarise
 };

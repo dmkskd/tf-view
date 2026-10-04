@@ -164,6 +164,10 @@ const section2 = `
      ============================================================ */
 
   ${getModuleByRelative("core/parser.js")}
+
+  ${getModuleByRelative("core/references.js")}
+
+  ${getModuleByRelative("core/snapshot.js")}
 `;
 
 // Section 3: Layout — nested boxes, measured bottom-up

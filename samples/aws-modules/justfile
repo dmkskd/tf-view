@@ -1,0 +1,57 @@
+# aws-modules sample — just commands
+#
+# Safe vs real AWS, and how it's enforced:
+#   - `init` and `plan` never touch AWS. Forced by: var.plan_only defaults to
+#     true (fake credentials, no lookups) and plan always passes -refresh=false,
+#     so it can't even read real resources left over from a previous `apply`.
+#   - `apply`, `destroy` and `capture` DO touch real AWS. Forced by: they all
+#     pass -var="plan_only=false", which swaps in your real AWS credentials.
+
+default:
+    @just --list --unsorted
+
+# SAFE — never touches AWS. Downloads the provider and the public modules (run once)
+init:
+    terraform init
+
+# SAFE — never touches AWS, no credentials needed. Writes plan.json for the viewer
+plan:
+    terraform plan -input=false -refresh=false -out=tfplan
+    terraform show -json tfplan > plan.json
+
+# REAL AWS — creates real, billable resources. Run: just apply confirm
+apply confirm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "This creates real, billable AWS resources (NAT gateway, ALB, RDS, 3 instances)." >&2
+      echo "Run: just apply confirm" >&2
+      exit 1
+    fi
+    terraform apply -var="plan_only=false"
+
+# REAL AWS — deletes the real resources for good. Run: just destroy confirm
+destroy confirm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "This deletes real AWS resources for good." >&2
+      echo "Run: just destroy confirm" >&2
+      exit 1
+    fi
+    terraform destroy -var="plan_only=false"
+
+# REAL AWS — captures a real diff into changes-plan.json (needs apply confirm first)
+capture:
+    ./capture-changes.sh
+
+# REAL AWS — actually applies the staged changes
+apply-changes confirm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "This applies the staged changes to real AWS resources." >&2
+      echo "Run: just apply-changes confirm" >&2
+      exit 1
+    fi
+    terraform apply -var="plan_only=false" -var="staged_changes=true"

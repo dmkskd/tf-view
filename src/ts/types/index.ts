@@ -170,6 +170,11 @@ export interface PlanResource {
   expressions?: Record<string, any>;
   depends_on?: string[];
   refs: string[];
+  /* the part of refs that only the saved state graph supplies (the configuration
+     cannot see it, typically because it goes through a local) */
+  stateRefs?: string[];
+  /* the module it lives in ("module.net[0]"), empty at the root */
+  module?: string;
   action: ActionType;
   actionReason?: string | null;
   spec?: CatalogEntry | null;

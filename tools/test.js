@@ -20,6 +20,8 @@ const buildTree = app.fn("buildTree");
 const isSensitive = app.fn("isSensitive");
 const baseAddr = app.fn("baseAddr");
 const matchRules = app.fn("matchRules");
+const modelSnapshot = app.fn("modelSnapshot");
+const listRefs = app.fn("listRefs");
 
 /* ---- runner ---------------------------------------------------------- */
 
@@ -455,6 +457,265 @@ describe("parse: non-resource sections become typed fields", () => {
   test("a plan with none of them has empty fields, not undefined", () => {
     const m = parsePlan(plan([VPC]), "t");
     eq([m.variables, m.driftDetails, m.checks, m.outputs], [{}, [], [], null]);
+  });
+});
+
+describe("parse: modules", () => {
+  // resource_changes is flat and fully qualified; configuration is nested, with
+  // addresses relative to each module. The helper builds both from one list.
+  const rc = (addr, actions) => {
+    const parts = addr.split(".");
+    const strip = x => x.replace(/\[.*$/, "");
+    const mod = [];
+    let i = 0;
+    while (parts[i] === "module") { mod.push("module." + parts[i + 1]); i += 2; }
+    return {
+      address: addr, mode: "managed", type: strip(parts[i]), name: strip(parts[i + 1]),
+      module_address: mod.length ? mod.join(".") : undefined,
+      change: { actions: actions || ["no-op"], before: {}, after: {}, after_unknown: {}, after_sensitive: {} }
+    };
+  };
+  const res = (type, name, refs, dependsOn) => ({
+    address: type + "." + name, mode: "managed", type, name,
+    expressions: Object.fromEntries(Object.entries(refs || {}).map(([k, r]) => [k, { references: r }])),
+    depends_on: dependsOn
+  });
+  const modPlan = (addrs, root) => ({
+    format_version: "1.2",
+    resource_changes: addrs.map(a => rc(a)),
+    configuration: { provider_config: { aws: { name: "aws", expressions: { region: { constant_value: "eu-west-1" } } } },
+                     root_module: root }
+  });
+  const refsOf = (m, a) => m.byAddr[a].refs;
+
+  // module.net: a vpc and a subnet in it, the subnet exposed as an output
+  const net = (extra) => Object.assign({
+    resources: [
+      res("aws_vpc", "main"),
+      res("aws_subnet", "a", { vpc_id: ["aws_vpc.main.id", "aws_vpc.main"], cidr_block: ["var.cidr"] })
+    ],
+    outputs: { subnet_id: { expression: { references: ["aws_subnet.a.id", "aws_subnet.a"] } } }
+  }, extra);
+
+  test("a resource inside a module refers to its siblings by qualified address", () => {
+    const m = parsePlan(modPlan(["module.net.aws_vpc.main", "module.net.aws_subnet.a"], {
+      resources: [], module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "module.net.aws_subnet.a"), ["module.net.aws_vpc.main"]);
+  });
+
+  test("a root resource reaches into a module through its output", () => {
+    const m = parsePlan(modPlan(["module.net.aws_vpc.main", "module.net.aws_subnet.a", "aws_instance.web"], {
+      resources: [res("aws_instance", "web", { subnet_id: ["module.net.subnet_id", "module.net"] })],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "aws_instance.web"), ["module.net.aws_subnet.a"]);
+  });
+
+  test("dependents are linked across the module boundary", () => {
+    const m = parsePlan(modPlan(["module.net.aws_vpc.main", "module.net.aws_subnet.a", "aws_instance.web"], {
+      resources: [res("aws_instance", "web", { subnet_id: ["module.net.subnet_id"] })],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(m.byAddr["module.net.aws_subnet.a"].dependents, ["aws_instance.web"]);
+    eq(m.byAddr["module.net.aws_vpc.main"].dependents, ["module.net.aws_subnet.a"]);
+  });
+
+  test("var.x resolves to what the caller passed in", () => {
+    // outer passes aws_vpc.v to inner as vpc_id; inner's subnet uses var.vpc_id
+    const inner = { resources: [res("aws_subnet", "s", { vpc_id: ["var.vpc_id"] })], outputs: {} };
+    const outer = { resources: [res("aws_vpc", "v")],
+      module_calls: { inner: { expressions: { vpc_id: { references: ["aws_vpc.v.id", "aws_vpc.v"] } }, module: inner } } };
+    const m = parsePlan(modPlan(["module.outer.aws_vpc.v", "module.outer.module.inner.aws_subnet.s"], {
+      resources: [], module_calls: { outer: { expressions: {}, module: outer } } }), "t");
+    eq(refsOf(m, "module.outer.module.inner.aws_subnet.s"), ["module.outer.aws_vpc.v"]);
+  });
+
+  test("var.x resolves up to a resource in the root", () => {
+    const inner = { resources: [res("aws_subnet", "s", { vpc_id: ["var.vpc_id"] })], outputs: {} };
+    const m = parsePlan(modPlan(["aws_vpc.main", "module.net.aws_subnet.s"], {
+      resources: [res("aws_vpc", "main")],
+      module_calls: { net: { expressions: { vpc_id: { references: ["aws_vpc.main.id"] } }, module: inner } } }), "t");
+    eq(refsOf(m, "module.net.aws_subnet.s"), ["aws_vpc.main"]);
+  });
+
+  test("each instance of a counted module refers to its own siblings", () => {
+    const m = parsePlan(modPlan([
+      "module.net[0].aws_vpc.main", "module.net[0].aws_subnet.a",
+      "module.net[1].aws_vpc.main", "module.net[1].aws_subnet.a"], {
+      resources: [], module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "module.net[0].aws_subnet.a"), ["module.net[0].aws_vpc.main"]);
+    eq(refsOf(m, "module.net[1].aws_subnet.a"), ["module.net[1].aws_vpc.main"]);
+  });
+
+  test("an output reference with an instance key picks that instance", () => {
+    const m = parsePlan(modPlan([
+      "module.net[0].aws_vpc.main", "module.net[0].aws_subnet.a",
+      "module.net[1].aws_vpc.main", "module.net[1].aws_subnet.a", "aws_instance.web"], {
+      resources: [res("aws_instance", "web", { subnet_id: ["module.net[1].subnet_id"] })],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "aws_instance.web"), ["module.net[1].aws_subnet.a"]);
+  });
+
+  test("depends_on a module means everything inside it", () => {
+    const m = parsePlan(modPlan(["module.net.aws_vpc.main", "module.net.aws_subnet.a", "aws_instance.web"], {
+      resources: [res("aws_instance", "web", {}, ["module.net"])],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "aws_instance.web"), ["module.net.aws_vpc.main", "module.net.aws_subnet.a"]);
+  });
+
+  test("a depends_on on the module call holds for every resource inside", () => {
+    const m = parsePlan(modPlan(["aws_iam_role.r", "module.net.aws_vpc.main", "module.net.aws_subnet.a"], {
+      resources: [res("aws_iam_role", "r")],
+      module_calls: { net: { expressions: {}, depends_on: ["aws_iam_role.r"], module: net() } } }), "t");
+    ok(refsOf(m, "module.net.aws_vpc.main").indexOf("aws_iam_role.r") >= 0, "vpc depends on the role");
+    ok(refsOf(m, "module.net.aws_subnet.a").indexOf("aws_iam_role.r") >= 0, "subnet depends on the role");
+  });
+
+  test("the resource records the module it lives in", () => {
+    const m = parsePlan(modPlan(["module.net[0].aws_vpc.main", "aws_iam_role.r"], {
+      resources: [res("aws_iam_role", "r")],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(m.byAddr["module.net[0].aws_vpc.main"].module, "module.net[0]");
+    eq(m.byAddr["aws_iam_role.r"].module || "", "");
+  });
+
+  test("modules are no longer reported as unimplemented", () => {
+    const m = parsePlan(modPlan(["module.net.aws_vpc.main"], {
+      resources: [], module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    ok(!m.diagnostics.some(d => d.code === "module"), "no module warning");
+    ok(!m.diagnostics.some(d => d.code === "no-config"), "configuration was read");
+  });
+
+  test("a reference into a module that has nothing in the plan is dropped", () => {
+    const m = parsePlan(modPlan(["aws_instance.web"], {
+      resources: [res("aws_instance", "web", { subnet_id: ["module.net.subnet_id"] })],
+      module_calls: { net: { expressions: {}, module: net() } } }), "t");
+    eq(refsOf(m, "aws_instance.web"), []);
+  });
+});
+
+describe("detail: dependency list", () => {
+  const known = { "aws_sg.this[0]": 1, "aws_sg.other": 1, "aws_sub.p[0]": 1, "aws_sub.p[1]": 1 };
+
+  test("a bare base is dropped when its specific form is listed", () => {
+    eq(listRefs(["aws_sg.this[0]", "aws_sg.this"], known).map(r => r.addr), ["aws_sg.this[0]"]);
+  });
+
+  test("a bare base with no specific form expands to the instances that exist", () => {
+    eq(listRefs(["aws_sub.p"], known).map(r => r.addr), ["aws_sub.p[0]", "aws_sub.p[1]"]);
+  });
+
+  test("something not in the plan is kept but marked, not linked", () => {
+    eq(listRefs(["aws_log.gone"], known), [{ addr: "aws_log.gone", inPlan: false }]);
+  });
+
+  test("a resource with no instance key is a plain link", () => {
+    eq(listRefs(["aws_sg.other"], known), [{ addr: "aws_sg.other", inPlan: true }]);
+  });
+
+  test("duplicates collapse", () => {
+    eq(listRefs(["aws_sg.other", "aws_sg.other"], known).length, 1);
+  });
+});
+
+describe("parse: the saved state graph adds links the configuration cannot show", () => {
+  // The NAT gateway reaches the EIP through a local, so the configuration gives
+  // it no reference; prior_state records the dependency.
+  const withState = (resources, deps, extraRefs) => {
+    const p = plan(resources);
+    p.prior_state = { values: { root_module: { resources: Object.keys(deps).map(a => {
+      const [type, name] = a.replace(/\[.*$/, "").split(".");
+      return { address: a, mode: "managed", type, name, depends_on: deps[a] };
+    }) } } };
+    return parsePlan(p, "t");
+  };
+  const EIP = { addr: "aws_eip.nat[0]", actions: ["no-op"], before: {}, after: {} };
+  const NAT = { addr: "aws_nat_gateway.this[0]", actions: ["no-op"], before: {}, after: {} };
+
+  test("a dependency only the state knows becomes a link", () => {
+    const m = withState([EIP, NAT], { "aws_nat_gateway.this[0]": ["aws_eip.nat"] });
+    eq(m.byAddr["aws_nat_gateway.this[0]"].refs, ["aws_eip.nat[0]"]);
+    eq(m.byAddr["aws_eip.nat[0]"].dependents, ["aws_nat_gateway.this[0]"]);
+  });
+
+  test("the links that came only from state are recorded", () => {
+    const m = withState([EIP, NAT], { "aws_nat_gateway.this[0]": ["aws_eip.nat"] });
+    eq(m.byAddr["aws_nat_gateway.this[0]"].stateRefs, ["aws_eip.nat[0]"]);
+    eq(m.byAddr["aws_eip.nat[0]"].stateRefs, undefined);
+  });
+
+  test("a bare base widens to every instance that exists", () => {
+    const A = { addr: "aws_subnet.p[0]", actions: ["no-op"], before: {}, after: {} };
+    const B = { addr: "aws_subnet.p[1]", actions: ["no-op"], before: {}, after: {} };
+    const T = { addr: "aws_lb.front", actions: ["no-op"], before: {}, after: {} };
+    const m = withState([A, B, T], { "aws_lb.front": ["aws_subnet.p"] });
+    eq(m.byAddr["aws_lb.front"].refs, ["aws_subnet.p[0]", "aws_subnet.p[1]"]);
+  });
+
+  test("it does not widen what the configuration already named", () => {
+    // the config points at p[0]; widening the state's bare "p" to p[1] too would
+    // make one subnet look like a splat and pull the instance out of it
+    const A = { addr: "aws_subnet.p[0]", actions: ["no-op"], before: {}, after: {} };
+    const B = { addr: "aws_subnet.p[1]", actions: ["no-op"], before: {}, after: {} };
+    const I = { addr: "aws_instance.w", actions: ["no-op"], before: {}, after: {},
+                refs: { subnet_id: ["aws_subnet.p[0].id", "aws_subnet.p[0]", "aws_subnet.p"] } };
+    const m = withState([A, B, I], { "aws_instance.w": ["aws_subnet.p"] });
+    eq(m.byAddr["aws_instance.w"].refs, ["aws_subnet.p[0]"]);
+    eq(m.byAddr["aws_instance.w"].stateRefs, undefined);
+  });
+
+  test("a link the configuration already has is not repeated", () => {
+    const m = withState([EIP, NAT].map(x => x), { "aws_nat_gateway.this[0]": ["aws_eip.nat[0]"] });
+    eq(m.byAddr["aws_nat_gateway.this[0]"].refs.length, 1);
+  });
+
+  test("data sources and unknown addresses are ignored", () => {
+    const m = withState([EIP, NAT], { "aws_nat_gateway.this[0]": ["data.aws_availability_zones.available", "aws_gone.x"] });
+    eq(m.byAddr["aws_nat_gateway.this[0]"].refs, []);
+  });
+
+  test("state links reach into modules, which nest in prior_state", () => {
+    const p = plan([
+      { addr: "module.n.aws_eip.nat[0]", actions: ["no-op"], before: {}, after: {} },
+      { addr: "module.n.aws_nat_gateway.this[0]", actions: ["no-op"], before: {}, after: {} }]);
+    p.prior_state = { values: { root_module: { child_modules: [{ address: "module.n", resources: [
+      { address: "module.n.aws_nat_gateway.this[0]", mode: "managed", type: "aws_nat_gateway", name: "this",
+        depends_on: ["module.n.aws_eip.nat"] }] }] } } };
+    const m = parsePlan(p, "t");
+    eq(m.byAddr["module.n.aws_nat_gateway.this[0]"].refs, ["module.n.aws_eip.nat[0]"]);
+  });
+
+  test("a plan with no prior_state is unchanged", () => {
+    const m = parsePlan(plan([EIP, NAT]), "t");
+    eq(m.byAddr["aws_nat_gateway.this[0]"].refs, []);
+  });
+});
+
+describe("snapshot: the parsed model as plain data", () => {
+  const snap = (withAttrs) => modelSnapshot(parsePlan(plan([
+    VPC,
+    { addr: "aws_subnet.public", refs: { vpc_id: ["aws_vpc.main.id"] },
+      after: { cidr_block: "10.0.1.0/24", secret: "hunter2" } }
+  ], { variables: { token: { value: "var-secret-value" } } }), "t"), withAttrs);
+
+  test("each resource carries its links and dependents", () => {
+    const r = snap().resources.find(x => x.addr === "aws_subnet.public");
+    eq(r.refs, ["aws_vpc.main"]);
+    eq(snap().resources.find(x => x.addr === "aws_vpc.main").dependents, ["aws_subnet.public"]);
+  });
+
+  test("attribute values are left out unless asked for", () => {
+    eq(JSON.stringify(snap()).includes("hunter2"), false);
+    eq(JSON.stringify(snap(true)).includes("hunter2"), true);
+  });
+
+  test("variables are listed by name only", () => {
+    eq(snap().variables, ["token"]);
+    eq(JSON.stringify(snap()).includes("var-secret-value"), false);
+  });
+
+  test("it is plain data: it survives a JSON round trip unchanged", () => {
+    const a = snap();
+    eq(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(a)));
+    ok(Array.isArray(a.resources) && a.resources.length === 2, "two resources");
   });
 });
 

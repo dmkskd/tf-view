@@ -39,8 +39,6 @@
   summary={"create":2,"update":0,"replace":0,"delete":0,"no-op":0,"read":0}
   outputs=0 drift=null
   [warn/provider] Provider <b>google</b> is not implemented yet — only <b>aws</b> resources are drawn.
-  [warn/module] Nested module <b>module.vpc</b> is not implemented yet — its resources are drawn flat, without the module boundary.
-  [warn/no-config] No <b>configuration</b> block in this plan — relationships cannot be read, so everything is drawn at the top level. Re-run <b>terraform show -json</b> on the plan file (not the state).
   [warn/foreign] <b>google_compute_instance</b> × 1 — non-AWS resource, not implemented yet.
   [warn/unsupported] <b>aws_quantum_thing</b> × 1 — not implemented yet; drawn as a generic tile with no placement rules.
   google_compute_instance.x act=create sup=false kind=node refs=[] deps=[]
