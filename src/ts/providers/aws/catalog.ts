@@ -27,6 +27,14 @@ var AWS_REG: Record<string, CatalogEntry> = {
   aws_network_acl:                  {kind:"node", label:"Network ACL",         icon:"i-nacl",   cat:"sec",  scope:"vpc",
                                       preview:["vpc_id"]},
   aws_security_group:               {kind:"group", g:"sg", label:"Security Group", icon:"i-sg",  cat:"sec",  scope:"vpc"},
+  /* the VPC's own default objects: Terraform adopts them rather than creating
+     them, and every plan using the public VPC module has all three */
+  aws_default_network_acl:          {kind:"node", label:"Default Network ACL", icon:"i-nacl",   cat:"sec",  scope:"vpc",
+                                      preview:["vpc_id"]},
+  aws_default_route_table:          {kind:"node", label:"Default Route Table", icon:"i-rt",     cat:"net",  scope:"vpc",
+                                      preview:["default_route_table_id"]},
+  aws_default_security_group:       {kind:"node", label:"Default Security Group", icon:"i-sg",  cat:"sec",  scope:"vpc",
+                                      preview:["vpc_id"]},
   aws_eip:                          {kind:"node", label:"Elastic IP",          icon:"i-eip",    cat:"net",
                                       preview:["domain","public_ip","instance"]},
   aws_lb:                           {kind:"node", label:"Load Balancer",       icon:"i-lb",     cat:"net",
@@ -62,6 +70,8 @@ var AWS_REG: Record<string, CatalogEntry> = {
 
   aws_db_subnet_group:              {kind:"node", label:"DB Subnet Group",     icon:"i-db",     cat:"db",
                                       preview:["subnet_ids"]},
+  aws_db_parameter_group:           {kind:"node", label:"DB Parameter Group",  icon:"i-db",     cat:"db",   scope:"region",
+                                      preview:["family","name"]},
   aws_rds_cluster:                  {kind:"node", label:"RDS Cluster",         icon:"i-db",     cat:"db",   sub:"engine",
                                       preview:["engine","engine_version","database_name"]},
   aws_s3_bucket:                    {kind:"node", label:"S3 Bucket",           icon:"i-s3",     cat:"storage", scope:"region",
@@ -76,6 +86,10 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["bucket"]},
   aws_lambda_function:              {kind:"node", label:"Lambda Function",     icon:"i-lambda", cat:"compute", sub:"runtime",
                                       preview:["runtime","handler","memory_size","timeout"]},
+  aws_sqs_queue:                    {kind:"node", label:"SQS Queue",           icon:"i-sqs",    cat:"integ", scope:"region",
+                                      preview:["name","fifo_queue","visibility_timeout_seconds"]},
+  aws_sns_topic:                    {kind:"node", label:"SNS Topic",           icon:"i-sns",    cat:"integ", scope:"region",
+                                      preview:["name","fifo_topic"]},
   aws_cloudwatch_log_group:         {kind:"node", label:"Log Group",           icon:"i-cw",     cat:"mgmt", scope:"region",
                                       preview:["retention_in_days"]},
 
@@ -122,7 +136,8 @@ var CAT: Record<string, string> = {
   sec:      "var(--aws-sec)",
   storage:  "var(--aws-storage)",
   db:       "var(--aws-db)",
-  mgmt:     "var(--aws-mgmt)"
+  mgmt:     "var(--aws-mgmt)",
+  integ:    "var(--aws-integ)"
 };
 
 var CAT_LABEL: [string, string][] = [
@@ -132,6 +147,7 @@ var CAT_LABEL: [string, string][] = [
   ["storage", "Storage"],
   ["db",      "Database"],
   ["mgmt",    "Management"],
+  ["integ",   "Application integration"],
   ["other",   "Not implemented"]
 ];
 
