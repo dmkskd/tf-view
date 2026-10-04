@@ -145,7 +145,10 @@ function panelCoverage(){
   var assoc = model.resources.filter(function(r){ return r.supported && r.kind === "assoc"; }).length;
   var un = total - sup;
   var hiddenAssoc = opts.showAssoc ? 0 : assoc;
-  var missing = un + hiddenAssoc;
+  /* an unsupported type is still a (generic) tile while "show unsupported" is
+     on, so it only counts as missing when that option is off */
+  var hiddenUnsup = opts.showUnsup ? 0 : un;
+  var missing = hiddenUnsup + hiddenAssoc;
 
   var block = $("covBlock");
   if (!block) return;
@@ -153,7 +156,7 @@ function panelCoverage(){
 
   block.hidden = false;
   var countEl = $("covCount");
-  if (countEl) countEl.textContent = missing + " of " + total;
+  if (countEl) countEl.textContent = (total - missing) + " of " + total;
 
   const bar = $("covBar");
   if (bar) {
@@ -161,7 +164,7 @@ function panelCoverage(){
     var segs: [number, string, string][] = [
       [total - missing, "var(--create)", "drawn"],
       [hiddenAssoc, "var(--aws-net)", "associations hidden"],
-      [un, "var(--warn)", "type not implemented"]
+      [hiddenUnsup, "var(--warn)", "type not implemented, hidden"]
     ];
     segs.forEach(function(seg){
       if (!seg[0] || !total) return;
@@ -176,7 +179,7 @@ function panelCoverage(){
   }
 
   var parts: any[] = [];
-  if (un) parts.push(html`<span><i class="sw sw-warn"></i>type not implemented <b>${un}</b></span>`);
+  if (hiddenUnsup) parts.push(html`<span><i class="sw sw-warn"></i>type not implemented, hidden <b>${hiddenUnsup}</b></span>`);
   if (hiddenAssoc) parts.push(html`<span><i class="sw sw-net"></i>associations hidden <b>${hiddenAssoc}</b></span>`);
   var leg = $("covLegend");
   if (leg) leg.innerHTML = html`${parts}`.toString();

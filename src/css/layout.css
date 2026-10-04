@@ -39,7 +39,14 @@
   .block > h3 em .sep{color:var(--line); margin:0 5px;}
 
   /* coverage */
-  .chg-list{display:flex; flex-direction:column; gap:2px;}
+  /* long plans scroll inside the list, so the sections below stay in reach.
+     The padding gives each row's negative margin (its hover background) room
+     that an overflow container would otherwise clip. */
+  .chg-list{
+    display:flex; flex-direction:column; gap:2px;
+    max-height:min(45vh, 420px); overflow-y:auto; overscroll-behavior:contain;
+    margin:0 -9px; padding:0 9px; scrollbar-gutter:stable;
+  }
   .chg{
     display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 9px;
     padding:7px 9px; margin:0 -9px; border-radius:8px; cursor:pointer;
@@ -99,9 +106,11 @@
   .diag{display:flex; flex-direction:column; gap:7px;}
   .dg{
     display:flex; gap:8px; padding:7px 9px; border-radius:8px; font-size:12px; line-height:1.45;
-    border:1px solid transparent; white-space:nowrap;
+    border:1px solid transparent;
   }
-  .dg > span:nth-child(2){overflow:hidden; text-overflow:ellipsis;}
+  /* a message is a sentence: wrap it rather than cut it off, and break the
+     long type names that have no spaces to wrap at */
+  .dg > span:nth-child(2), .dg > summary > span:nth-child(2){min-width:0; overflow-wrap:anywhere;}
   .dg span[title]{cursor:help; border-bottom:1px dotted currentColor;}
   .dg.has-detail{display:block; padding:0;}
   .dg.has-detail > summary{
