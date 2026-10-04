@@ -4,7 +4,7 @@
     --line:#D7D4E1; --line-soft:#E6E3ED;
 
     --aws-compute:#ED7100; --aws-net:#8C4FFF; --aws-sec:#DD344C;
-    --aws-storage:#7AA116; --aws-db:#C925D1; --aws-mgmt:#E7157B;
+    --aws-storage:#7AA116; --aws-db:#C925D1; --aws-mgmt:#E7157B; --aws-integ:#E7157B;
     --aws-region:#00A4A6; --aws-cloud:#242F3E; --aws-public:#7AA116;
 
     --create:#5C8B1A; --update:#2D6FD6; --replace:#C77700; --destroy:#DD344C; --noop:#6B7787;
@@ -27,7 +27,7 @@
       --bg:#0D1015; --surface:#151920; --surface-2:#1B2029; --surface-3:#232935;
       --line:#2C323E; --line-soft:#222731;
       --aws-compute:#FF9A3C; --aws-net:#A97DFF; --aws-sec:#FF6178;
-      --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3;
+      --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3; --aws-integ:#FF5BA3;
       --aws-region:#2CC7C9; --aws-cloud:#95A0B0; --aws-public:#9BC53A;
       --create:#9BC53A; --update:#6BA4FF; --replace:#F0A93B; --destroy:#FF6178; --noop:#8A92A0;
       --warn:#F0A93B; --err:#FF6178;
@@ -45,7 +45,7 @@
     --bg:#0D1015; --surface:#151920; --surface-2:#1B2029; --surface-3:#232935;
     --line:#2C323E; --line-soft:#222731;
     --aws-compute:#FF9A3C; --aws-net:#A97DFF; --aws-sec:#FF6178;
-    --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3;
+    --aws-storage:#9BC53A; --aws-db:#E45BEA; --aws-mgmt:#FF5BA3; --aws-integ:#FF5BA3;
     --aws-region:#2CC7C9; --aws-cloud:#95A0B0; --aws-public:#9BC53A;
     --create:#9BC53A; --update:#6BA4FF; --replace:#F0A93B; --destroy:#FF6178; --noop:#8A92A0;
     --warn:#F0A93B; --err:#FF6178;
