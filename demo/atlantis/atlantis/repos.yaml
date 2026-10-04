@@ -1,0 +1,32 @@
+repos:
+  - id: /.*/
+    workflow: tfplanview
+    allowed_overrides: [workflow]
+
+workflows:
+  tfplanview:
+    plan:
+      steps:
+        - init
+        - plan
+        - run: |
+            set -e
+            terraform show -json "$PLANFILE" > "$DIR/plan.json"
+            name="mr${PULL_NUM}-${PROJECT_NAME:-default}-$(date +%s).html"
+            node /opt/tfplanview/inject.js /opt/tfplanview/index.html "$DIR/plan.json" \
+              "MR !${PULL_NUM} ${REPO_REL_DIR}" > "/reports/$name"
+            rm -f "$DIR/plan.json"
+            # Atlantis folds step output into its collapsed plan comment, so post a separate,
+            # visible MR comment: a link to the served copy plus the HTML stored in GitLab itself.
+            GL=http://localhost:8929/api/v4/projects/${BASE_REPO_OWNER}%2F${BASE_REPO_NAME}
+            AUTH="PRIVATE-TOKEN: ${ATLANTIS_GITLAB_TOKEN}"
+            up=$(curl -fsS -H "$AUTH" -F "file=@/reports/$name" "$GL/uploads" | jq -r .markdown)
+            curl -fsS -H "$AUTH" -X POST "$GL/merge_requests/${PULL_NUM}/notes" \
+              --data-urlencode "body=### Visual plan (${PROJECT_NAME:-default})
+            **[Open the visual plan in a new tab](${REPORTS_URL}/${name})**
+
+            Archived copy stored in GitLab (downloads, GitLab never renders HTML): ${up}" >/dev/null
+            echo "Visual plan: ${REPORTS_URL}/${name}"
+    apply:
+      steps:
+        - apply

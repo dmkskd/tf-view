@@ -1,0 +1,6 @@
+version: 3
+projects:
+  - dir: infra
+    name: demo
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars"]
