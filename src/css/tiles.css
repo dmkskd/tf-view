@@ -19,33 +19,37 @@
   .grp[data-addr]{cursor:pointer;}
   .grp[data-addr] > .grp-hd{pointer-events:auto;}
   .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
-  .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 45%, transparent);}
+  .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);}
 
   .grp > .grp-hd em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
     font-weight:400; letter-spacing:0; text-transform:none; color:var(--muted);}
   .grp > .grp-hd svg{width:13px; height:13px;}
   .grp > .grp-hd svg.tile{width:14px; height:14px; border-radius:3px;}
 
-  .grp.cloud{border:1px solid var(--aws-cloud);}
-  .grp.cloud > .grp-hd{color:var(--aws-cloud);}
-  .grp.region{border:1px dashed var(--aws-region);}
-  .grp.region > .grp-hd{color:var(--aws-region);}
-  .grp.vpc{border:1.5px solid var(--aws-net);}
-  .grp.vpc > .grp-hd{color:var(--aws-net);}
+  /* a plan with several providers: one cloud box each, inside this invisible
+     holder (core/layout.ts) */
+  .grp.clouds{border:0; background:none; pointer-events:none;}
+  .grp.clouds > .grp-hd{display:none;}
+  .grp.cloud{border:1px solid var(--box-cloud);}
+  .grp.cloud > .grp-hd{color:var(--box-cloud);}
+  .grp.region{border:1px dashed var(--box-region);}
+  .grp.region > .grp-hd{color:var(--box-region);}
+  .grp.vpc{border:1.5px solid var(--cat-net);}
+  .grp.vpc > .grp-hd{color:var(--cat-net);}
   .grp.vpc-wide{border:1px dashed var(--line); border-radius:9px;}
   .grp.vpc-wide > .grp-hd{color:var(--muted);}
-  .grp.az{border:1px dashed var(--aws-region); border-radius:9px;}
-  .grp.az > .grp-hd{color:var(--aws-region);}
-  .grp.subnet{border:1px solid var(--aws-public); background:color-mix(in srgb, var(--aws-public) 5%, transparent);}
-  .grp.subnet > .grp-hd{color:var(--aws-public);}
-  .grp.subnet.private{border-color:var(--aws-region); background:color-mix(in srgb, var(--aws-region) 6%, transparent);}
-  .grp.subnet.private > .grp-hd{color:var(--aws-region);}
-  .grp.sg{border:1.3px dashed var(--aws-sec); border-radius:9px;
-    background:color-mix(in srgb, var(--aws-sec) 4%, transparent);}
-  .grp.sg > .grp-hd{color:var(--aws-sec);}
-  .grp.cluster{border:1.3px solid var(--aws-compute); border-radius:9px;
-    background:color-mix(in srgb, var(--aws-compute) 4%, transparent);}
-  .grp.cluster > .grp-hd{color:var(--aws-compute);}
+  .grp.az{border:1px dashed var(--box-region); border-radius:9px;}
+  .grp.az > .grp-hd{color:var(--box-region);}
+  .grp.subnet{border:1px solid var(--box-public); background:color-mix(in srgb, var(--box-public) 5%, transparent);}
+  .grp.subnet > .grp-hd{color:var(--box-public);}
+  .grp.subnet.private{border-color:var(--box-region); background:color-mix(in srgb, var(--box-region) 6%, transparent);}
+  .grp.subnet.private > .grp-hd{color:var(--box-region);}
+  .grp.sg{border:1.3px dashed var(--cat-sec); border-radius:9px;
+    background:color-mix(in srgb, var(--cat-sec) 4%, transparent);}
+  .grp.sg > .grp-hd{color:var(--cat-sec);}
+  .grp.cluster{border:1.3px solid var(--cat-compute); border-radius:9px;
+    background:color-mix(in srgb, var(--cat-compute) 4%, transparent);}
+  .grp.cluster > .grp-hd{color:var(--cat-compute);}
   .grp.loose{border:1.3px dashed var(--line); background:var(--surface-2);}
   .grp.loose > .grp-hd{color:var(--muted);}
 
@@ -94,7 +98,7 @@
   }
   @keyframes chgPulse{
     0%,100%{outline-color:transparent;}
-    50%    {outline-color:color-mix(in srgb, var(--pulse, var(--aws-net)) 42%, transparent);}
+    50%    {outline-color:color-mix(in srgb, var(--pulse, var(--accent)) 42%, transparent);}
   }
 
   /* a container that is itself changing must not recede with the rest */
@@ -135,11 +139,11 @@
   .canvas.no-actions .node .act{display:none;}
   .act-legend{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11.5px; margin-top:2px;}
   .act-legend span{display:inline-flex; align-items:center; gap:5px; color:var(--muted);}
-  .node.sel{border-color:var(--aws-net); box-shadow:0 0 0 2px color-mix(in srgb, var(--aws-net) 40%, transparent), var(--shadow);}
+  .node.sel{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent), var(--shadow);}
   .node.dim, .grp.dim{opacity:.22;}
-  .node.rel{border-color:var(--aws-net);}
-  .grp.rel{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--aws-net) 55%, transparent);}
-  .grp.rel > .grp-hd{color:var(--aws-net);}
+  .node.rel{border-color:var(--accent);}
+  .grp.rel{box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);}
+  .grp.rel > .grp-hd{color:var(--accent);}
   /* action colouring belongs to Changes mode only */
   .canvas.mode-changes .node.act-update{border-color:var(--update); box-shadow:inset 3px 0 0 var(--update);}
   .canvas.mode-changes .node.act-replace{border-color:var(--replace); box-shadow:inset 3px 0 0 var(--replace);}
@@ -161,7 +165,7 @@
   .intro .sample-action .btn:disabled{opacity:.45; cursor:not-allowed;}
   .intro .scope-note{
     font-size:13px; color:var(--body); background:var(--surface-2);
-    border-left:3px solid var(--aws-compute); border-radius:0 7px 7px 0;
+    border-left:3px solid var(--cat-compute); border-radius:0 7px 7px 0;
     padding:9px 12px; max-width:62ch;
   }
   .intro .scope-note b{color:var(--ink); font-weight:600;}
@@ -182,7 +186,7 @@
     line-height:1.65; color:var(--ink); overflow-x:auto;
     -webkit-user-select:all; user-select:all;
   }
-  body.dragging .canvas-wrap{outline:3px dashed var(--aws-net); outline-offset:-8px;}
+  body.dragging .canvas-wrap{outline:3px dashed var(--accent); outline-offset:-8px;}
 
   .llm-chip {
     font-family: "Archivo", sans-serif; font-size: 8px; font-weight: 700;
@@ -204,6 +208,6 @@
   .canvas.hide-llm .llm-chip { display: none !important; }
   .llm-chip[data-risk="CRITICAL"], .llm-chip[data-risk="critical"] { background: var(--err); }
   .llm-chip[data-risk="HIGH"], .llm-chip[data-risk="high"] { background: var(--warn); }
-  .llm-chip[data-risk="MEDIUM"], .llm-chip[data-risk="medium"] { background: var(--aws-compute); }
+  .llm-chip[data-risk="MEDIUM"], .llm-chip[data-risk="medium"] { background: var(--cat-compute); }
   .llm-chip[data-risk="LOW"], .llm-chip[data-risk="low"] { background: var(--create); }
 

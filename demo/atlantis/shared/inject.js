@@ -75,22 +75,30 @@ function redactPlan(p) {
 }
 
 const plan = JSON.stringify(redactPlan(JSON.parse(plan_raw))); // also fails early on invalid input
-const tag = ['injected-plan', 'embedded-plan']
-  .map(id => `<script type="application/json" id="${id}">`)
-  .find(t => html.includes(t));
-if (!tag) throw new Error('template has no injected-plan/embedded-plan tag');
-const start = html.indexOf(tag) + tag.length;
-const end = html.indexOf('</script>', start);
+// Fills only JSON data blocks and adds no script: the page's
+// Content-Security-Policy allows only the page's own script (by hash), so the
+// browser would block an added inline script. Each '<' becomes \u003c, so a
+// block cannot contain the </script> that would end it early.
 const esc = s => s.replace(/</g, '\\u003c');
-let out = html.slice(0, start) + esc(plan).trim() + html.slice(end);
+function fillBlock(doc, id, json) {
+  const tag = `<script type="application/json" id="${id}">`;
+  const i = doc.indexOf(tag);
+  if (i < 0) return null;
+  const start = i + tag.length;
+  const end = doc.indexOf('</script>', start);
+  return doc.slice(0, start) + esc(json).trim() + doc.slice(end);
+}
+let out = fillBlock(html, 'injected-plan', plan) || fillBlock(html, 'embedded-plan', plan);
+if (!out) throw new Error('template has no injected-plan/embedded-plan tag');
 // "Show changes" on by default, so the report (and any screenshot of it) marks what the plan changes.
 // SHOW_CHANGES=off keeps the viewer's own default.
-const showChanges = process.env.SHOW_CHANGES !== 'off'
-  ? `  window.addEventListener('load', function () {\n    var tries = 0;\n    var t = setInterval(function () {\n      var b = document.getElementById('modeChg');\n      if (b && !b.disabled) { clearInterval(t); if (b.getAttribute('aria-pressed') !== 'true') b.click(); }\n      else if (++tries > 100) clearInterval(t);\n    }, 100);\n  });\n`
-  : '';
 // The report shows only this plan: VIEWER_ONLY=off brings back the Load and Samples buttons.
-const viewerOnly = process.env.VIEWER_ONLY !== 'off' ? `  window.__TFVIEW_VIEWER_ONLY = true;\n` : '';
-const boot = `\n<script>\n  window.__TFVIEW_AUTOLOAD = true;\n${viewerOnly}  window.__TFVIEW_PLAN_LABEL = ${esc(JSON.stringify(label || 'terraform plan'))};\n${showChanges}</script>\n`;
-const b = out.lastIndexOf('</body>');
-if (b >= 0) out = out.slice(0, b) + boot + out.slice(b);
+const config = JSON.stringify({
+  autoload: true,
+  viewerOnly: process.env.VIEWER_ONLY !== 'off',
+  showChanges: process.env.SHOW_CHANGES !== 'off',
+  label: label || 'terraform plan'
+});
+out = fillBlock(out, 'tfview-config', config);
+if (!out) throw new Error('template has no tfview-config block; rebuild dist/index.html');
 process.stdout.write(out);

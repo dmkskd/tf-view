@@ -1,6 +1,6 @@
 import { escapeHtml, html, raw } from "./util.js";
 import { attrKind, kindSource } from "./schema.js";
-import { isRuleAttr, ruleKey, ruleRow } from "../providers/registry.js";
+import { isRuleAttr, ruleKey, ruleDiffRow } from "./rules.js";
 import { PlanResource } from "../types/index.js";
 
 /* --- what this plan changes, per resource --- */
@@ -18,6 +18,21 @@ function isSensitive(mirror: any): boolean {
 
 function sameVal(a: any, b: any): boolean {
   try { return JSON.stringify(a) === JSON.stringify(b); } catch(e){ return a === b; }
+}
+
+/* The names of the attributes this plan changes on a resource, sorted;
+   includes keys whose sensitive value changed. */
+function changedKeys(r: PlanResource): string[] {
+  if (r.action === "create" || r.action === "no-op") return [];
+  var before: Record<string, any> = r.before || {}, after: Record<string, any> = r.attrs || {}, keys: string[] = [];
+  Object.keys(before).concat(Object.keys(after)).forEach(function(k: string){
+    if (keys.indexOf(k) < 0 && !sameVal(before[k], after[k])) keys.push(k);
+  });
+  Object.keys(r.unknown || {}).forEach(function(k: string){
+    if ((r.unknown as any)[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
+  });
+  (r.changedSensitiveKeys || []).forEach(function(k: string){ if (keys.indexOf(k) < 0) keys.push(k); });
+  return keys.sort();
 }
 
 function valText(v: any, sensitive: boolean): string {
@@ -113,7 +128,7 @@ function ruleDiffHtml(k: string, before: any, after: any, resOrType: any): strin
   var type = res ? res.type : resOrType;
   var kind = attrKind(type, k);
   var rows = matchRules(before, after, kind, res).map(function(m: any){
-    return ruleRow(res, m.rule, m.mark, k);
+    return ruleDiffRow(res, m.rule, m.mark);
   }).join("");
 
   if (!rows) rows = '<div class="rdiff-row kept"><span class="m">&nbsp;</span>' +
@@ -137,9 +152,10 @@ function changeHtml(r: PlanResource): { count: number; body: string } | null {
   Object.keys(after).forEach(function(k: string){ keys[k] = 1; });
   Object.keys(r.unknown || {}).forEach(function(k: string){ if ((r.unknown as any)[k] === true) keys[k] = 1; });
 
+  var secretChanged = r.changedSensitiveKeys || [];
   var rows = Object.keys(keys).sort().filter(function(k: string){
     if (r.unknown && (r.unknown as any)[k] === true) return !sameVal((before as any)[k], undefined);
-    return !sameVal((before as any)[k], (after as any)[k]);
+    return secretChanged.indexOf(k) >= 0 || !sameVal((before as any)[k], (after as any)[k]);
   });
 
   if (!rows.length && r.action !== "delete") return null;
@@ -172,8 +188,8 @@ function changeHtml(r: PlanResource): { count: number; body: string } | null {
 }
 
 export {
-  isSensitive, sameVal, valText, forcesReplace,
-  ACTION_REASON, reasonText, isRuleAttr, ruleKey, ruleRow,
+  isSensitive, sameVal, changedKeys, valText, forcesReplace,
+  ACTION_REASON, reasonText, isRuleAttr, ruleKey,
   matchRules, ruleDiffHtml, changeHtml
 };
 

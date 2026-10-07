@@ -1,5 +1,5 @@
 import { $, html } from "../core/util.js";
-import { CLI, consoleUrl } from "../providers/registry.js";
+import { cliCommands, consoleLink, toolNames } from "../core/registry.js";
 import { state, setSelected } from "../core/state.js";
 import { select, render, icoSvg } from "./diagram.js";
 import { renderDetail } from "./detail.js";
@@ -31,7 +31,7 @@ function ctxItem(label: string, hint: string, fn: () => void): HTMLButtonElement
 
 /* A real anchor, so the browser shows the true destination in its status bar
    and the click is exactly the URL that was validated. */
-function ctxLink(label: string, hint: string, href: string): HTMLAnchorElement {
+function ctxLink(label: string, hint: string, href: string, consoleName: string): HTMLAnchorElement {
   var a = document.createElement("a");
   a.innerHTML = html`
     ${label}
@@ -40,7 +40,7 @@ function ctxLink(label: string, hint: string, href: string): HTMLAnchorElement {
   a.href = href;
   a.target = "_blank";
   a.rel = "noopener noreferrer";
-  a.title = linkTitle(href);
+  a.title = linkTitle(href, consoleName);
   a.addEventListener("click", function(e: MouseEvent){ e.stopPropagation(); closeCtx(); });
   return a;
 }
@@ -90,13 +90,14 @@ function openCtx(addr: string, x: number, y: number): void {
   ctxEl.appendChild(ctxItem("Copy resource address", r.addr.length > 24 ? "\u2026" + r.addr.slice(-23) : r.addr, function(){
     copyTextSilent(r.addr);
   }));
-  var link = consoleUrl(r, {region: model.region});
+  var tools = toolNames(r);
+  var link = consoleLink(r, model);
   if (link){
-    ctxEl.appendChild(ctxLink("Open in AWS console", "\u2197", link));
+    ctxEl.appendChild(ctxLink("Open in " + tools.console, "\u2197", link, tools.console));
   }
-  var cmds = CLI(r, {region: model.region});
+  var cmds = cliCommands(r, model);
   if (cmds.length){
-    ctxEl.appendChild(ctxItem("Copy " + cmds[0].label.toLowerCase() + " command", "aws", function(){
+    ctxEl.appendChild(ctxItem("Copy " + cmds[0].label.toLowerCase() + " command", cmds[0].cmd.split(" ")[0], function(){
       copyTextSilent(cmds[0].cmd);
     }));
   }

@@ -1,8 +1,9 @@
-// check-links.js — the outbound-link guarantee.
+// check-links.js — checks the validation of links built from plan data.
 //
 // WHAT IT CHECKS
-//   1. safeExternalUrl accepts only https AWS console hosts and rejects
-//      everything else, including hostile lookalikes.
+//   1. safeExternalUrl accepts only https URLs on the hosts the provider
+//      declares (here the AWS console hosts) and rejects everything else,
+//      including hostile lookalikes; with no declared hosts it links nowhere.
 //   2. Links are off until enabled, and a plan cannot turn them on.
 //   3. A hostile plan (region, id and name chosen by an attacker) yields an
 //      AWS console URL or nothing.
@@ -24,8 +25,10 @@ function loadModule(rel, shims) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText;
   const m = { exports: {} };
+  /* a provider's only import is the SDK; its runtime part is the value readers */
+  const req = spec => (/sdk\/index\.js$/.test(spec) ? loadModule("sdk/values.ts") : {});
   new Function("module", "exports", "require", ...Object.keys(shims || {}), code)(
-    m, m.exports, () => ({}), ...Object.values(shims || {}));
+    m, m.exports, req, ...Object.values(shims || {}));
   return m.exports;
 }
 
@@ -35,7 +38,7 @@ const localStorage = {
   setItem: (k, v) => { store[k] = String(v); }
 };
 const links = loadModule("core/links.ts", { localStorage });
-const { awsConsoleUrl } = loadModule("providers/aws/console.ts");
+const { awsConsoleUrl, AWS_CONSOLE_HOSTS: H } = loadModule("providers/aws/console.ts");
 
 let fail = 0;
 function check(name, cond) {
@@ -66,23 +69,26 @@ const bad = [
   "https://console.aws.amazon.com/" + "a".repeat(2100),
   "", null, undefined, 42, {}
 ];
-good.forEach(u => check("accepts " + u.slice(0, 60), links.safeExternalUrl(u) !== null));
-bad.forEach(u => check("rejects " + String(u).slice(0, 60), links.safeExternalUrl(u) === null));
+good.forEach(u => check("accepts " + u.slice(0, 60), links.safeExternalUrl(u, H) !== null));
+bad.forEach(u => check("rejects " + String(u).slice(0, 60), links.safeExternalUrl(u, H) === null));
 
 /* a backslash is read as a slash, so this stays on the AWS host */
 check("backslash trick resolves to the AWS host",
-  new URL(links.safeExternalUrl("https://eu-west-1.console.aws.amazon.com\\@evil.com/")).hostname === "eu-west-1.console.aws.amazon.com");
+  new URL(links.safeExternalUrl("https://eu-west-1.console.aws.amazon.com\\@evil.com/", H)).hostname === "eu-west-1.console.aws.amazon.com");
+
+check("a provider that declares no hosts links nowhere",
+  links.safeExternalUrl(good[0], []) === null && links.safeExternalUrl(good[0]) === null);
 
 /* ---- 2. off by default, not controlled by a plan --------------------- */
 check("links are off by default", links.linksEnabled() === false);
-check("guardedLink is null while off", links.guardedLink(good[0]) === null);
+check("guardedLink is null while off", links.guardedLink(good[0], H) === null);
 check("restore with no saved choice stays off", links.restoreLinksEnabled() === false);
 store["tfplanview-links"] = "true";
 check("restore ignores anything but \"1\"", links.restoreLinksEnabled() === false);
 links.setLinksEnabled(true);
 check("enabling persists", store["tfplanview-links"] === "1" && links.linksEnabled());
-check("guardedLink passes a good url when on", links.guardedLink(good[0]) !== null);
-check("guardedLink blocks a bad url when on", links.guardedLink("https://evil.com/") === null);
+check("guardedLink passes a good url when on", links.guardedLink(good[0], H) !== null);
+check("guardedLink blocks a bad url when on", links.guardedLink("https://evil.com/", H) === null);
 links.setLinksEnabled(false);
 check("disabling persists", store["tfplanview-links"] === "0" && !links.linksEnabled());
 
@@ -100,7 +106,7 @@ for (const region of regions.concat(["eu-west-1", "cn-north-1", "us-gov-west-1"]
       const r = { type, attrs: { id, name: id, cluster_name: id, node_group_name: id }, before: null };
       const raw = awsConsoleUrl(r, { region });
       if (raw === null) continue;
-      const safe = links.guardedLink(raw);
+      const safe = links.guardedLink(raw, H);
       if (safe === null) { escaped++; continue; }
       produced++;
       const u = new URL(safe);
@@ -125,7 +131,7 @@ check("a hostile id stays inside the fragment",
 links.setLinksEnabled(false);
 
 /* ---- 4. no way around the guard -------------------------------------- */
-const ALLOWED = new Set(["core/links.ts", "providers/registry.ts", "providers/aws/console.ts",
+const ALLOWED = new Set(["core/links.ts", "core/registry.ts", "providers/aws/console.ts",
                          "ui/contextmenu.ts", "ui/detail.ts"]);
 const risky = [/window\.open\s*\(/, /\blocation\s*(\.href)?\s*=[^=]/, /\.href\s*=[^=]/,
                /\bhref="\$\{/, /document\.write/, /\.submit\s*\(/, /\bnew\s+(WebSocket|EventSource)\b/,

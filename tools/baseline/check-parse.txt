@@ -3,7 +3,7 @@
   resources=15 types=12
   summary={"create":1,"update":3,"replace":1,"delete":1,"no-op":9,"read":0}
   outputs=3 drift=["aws_vpc.main"]
-  [warn/drift] <b>1</b> resource drifted
+  [warn/drift] **1** resource drifted
   aws_iam_instance_profile.ssm act=no-op sup=true kind=node refs=[aws_iam_role.ssm] deps=[aws_instance.test]
   aws_iam_role.ssm act=no-op sup=true kind=node refs=[] deps=[aws_iam_instance_profile.ssm,aws_iam_role_policy_attachment.ssm]
   aws_iam_role_policy_attachment.ssm act=no-op sup=true kind=assoc refs=[aws_iam_role.ssm] deps=[]
@@ -19,27 +19,38 @@
   aws_vpc_endpoint.ec2messages act=delete sup=true kind=node refs=[aws_security_group.ssm_endpoints,aws_subnet.public,aws_vpc.main] deps=[]
   aws_vpc_endpoint.ssm act=no-op sup=true kind=node refs=[aws_security_group.ssm_endpoints,aws_subnet.public,aws_vpc.main] deps=[]
   aws_vpc_endpoint.ssmmessages act=create sup=true kind=node refs=[aws_security_group.ssm_endpoints,aws_subnet.public,aws_vpc.main] deps=[]
+### mixed
+  region=eu-west-1 tf=1.9.0 fmt=1.2
+  resources=7 types=7
+  summary={"create":7,"update":0,"replace":0,"delete":0,"no-op":0,"read":0}
+  outputs=0 drift=null
+  [ok/clean] All resources recognised
+  aws_vpc.main act=create sup=true kind=group refs=[] deps=[aws_subnet.a]
+  aws_subnet.a act=create sup=true kind=group refs=[aws_vpc.main] deps=[aws_instance.web]
+  aws_instance.web act=create sup=true kind=node refs=[aws_subnet.a] deps=[]
+  google_compute_network.net act=create sup=true kind=group refs=[] deps=[google_compute_subnetwork.sub]
+  google_compute_subnetwork.sub act=create sup=true kind=group refs=[google_compute_network.net] deps=[google_compute_instance.vm]
+  google_compute_instance.vm act=create sup=true kind=node refs=[google_compute_subnetwork.sub] deps=[]
+  google_storage_bucket.b act=create sup=true kind=node refs=[] deps=[]
 ### statefile
   region=null tf=null fmt=1.0
   resources=0 types=0
   summary={"create":0,"update":0,"replace":0,"delete":0,"no-op":0,"read":0}
   outputs=0 drift=null
-  [warn/state-file] No <b>resource_changes</b>. This looks like a state file rather than a plan; reading <b>planned_values</b> instead.
-  [warn/no-config] No <b>configuration</b> block in this plan — relationships cannot be read, so everything is drawn at the top level. Re-run <b>terraform show -json</b> on the plan file (not the state).
+  [warn/state-file] No **resource_changes**. This looks like a state file rather than a plan; reading **planned_values** instead.
+  [warn/no-config] No **configuration** block in this plan — relationships cannot be read, so everything is drawn at the top level. Re-run **terraform show -json** on the plan file (not the state).
 ### garbage
   region=null tf=null fmt=null
   resources=0 types=0
   summary=null
   outputs=0 drift=null
-  [warn/no-format] No <b>format_version</b> — this may not be a plan file. Parsing optimistically.
-  [err/no-resources] No <b>resource_changes</b> array — nothing to draw.
+  [warn/no-format] No **format_version** — this may not be a plan file. Parsing optimistically.
+  [err/no-resources] No **resource_changes** array — nothing to draw.
 ### foreignprov
   region=null tf=null fmt=1.2
   resources=2 types=2
   summary={"create":2,"update":0,"replace":0,"delete":0,"no-op":0,"read":0}
   outputs=0 drift=null
-  [warn/provider] Provider <b>google</b> is not implemented yet — only <b>aws</b> resources are drawn.
-  [warn/foreign] <b>google_compute_instance</b> × 1 — non-AWS resource, not implemented yet.
-  [warn/unsupported] <b>aws_quantum_thing</b> × 1 — not implemented yet; drawn as a generic tile with no placement rules.
-  google_compute_instance.x act=create sup=false kind=node refs=[] deps=[]
+  [warn/unsupported] **aws_quantum_thing** × 1 — not implemented yet; drawn as a generic tile with no placement rules.
+  google_compute_instance.x act=create sup=true kind=node refs=[] deps=[]
   aws_quantum_thing.y act=create sup=false kind=node refs=[] deps=[]

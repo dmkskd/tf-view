@@ -1,10 +1,10 @@
 import { $, html, raw, type SafeHtml } from "../core/util.js";
-import { popRow } from "../providers/registry.js";
+import { ruleSetFor, describeRules, describeRule, ruleHoverRow } from "../core/rules.js";
 import { sameVal, matchRules } from "../core/diff.js";
 import { attrKind } from "../core/schema.js";
 import { icoSvg } from "./diagram.js";
 import { state } from "../core/state.js";
-import { PlanResource } from "../types/index.js";
+import { PlanResource, RuleListSpec, RuleListDirection } from "../types/index.js";
 
 /* ------------------------------------------------------------------
    Rule preview. Security groups and network ACLs are the two things you
@@ -20,9 +20,10 @@ import { PlanResource } from "../types/index.js";
 
 var popEl: HTMLElement | null = $("rulePop"), popTimer: any = null, popAddr: string | null = null;
 
-function popRuleLines(r: PlanResource, dir: string, isNacl?: boolean): string {
-  var after = (r.attrs || {})[dir];
-  var before = (r.before || {})[dir];
+function popRuleLines(r: PlanResource, set: RuleListSpec, d: RuleListDirection): string {
+  var after = (r.attrs || {})[d.attr];
+  var before = (r.before || {})[d.attr];
+  var none = html`<div class="rp-none">no ${d.attr} rules</div>`.toString();
   /* Topology shows the rules as they will be; only Changes marks the diff,
      so the card matches whichever mode the diagram is in */
   var changed = state.opts.mode === "changes" &&
@@ -31,21 +32,16 @@ function popRuleLines(r: PlanResource, dir: string, isNacl?: boolean): string {
 
   var out: string;
   if (changed){
-    out = matchRules(before, after, attrKind(r.type, dir), r)
-            .map(function(m: any){ return popRow(r, m.rule, dir, isNacl, m.mark); }).join("");
+    out = matchRules(before, after, attrKind(r.type, d.attr), r)
+            .map(function(m: any){ return ruleHoverRow(describeRule(r, m.rule), d.inbound, set.ordered, m.mark); }).join("");
   } else {
     var entries = Array.isArray(after) ? after : [];
-    if (!entries.length) return '<div class="rp-none">no ' + dir + ' rules</div>';
-    var list = entries.slice();
-    if (isNacl) list.sort(function(a: any, b: any){ return (a.rule_no || 0) - (b.rule_no || 0); });
-    out = list.map(function(e: any){ return popRow(r, e, dir, isNacl, ""); }).join("");
+    if (!entries.length) return none;
+    out = describeRules(r, set, entries)
+            .map(function(t){ return ruleHoverRow(t, d.inbound, set.ordered, ""); }).join("");
   }
-  if (!out) return '<div class="rp-none">no ' + dir + ' rules</div>';
-
-  if (isNacl){
-    out += popRow(r, {action:"deny", protocol:"-1", from_port:0, to_port:0,
-                   cidr_block:"0.0.0.0/0"}, dir, false, "");
-  }
+  if (!out) return none;
+  if (set.implicit) out += ruleHoverRow(set.implicit, d.inbound, false, "");
   return out;
 }
 
@@ -96,7 +92,7 @@ function attrPreviewRows(r: PlanResource): SafeHtml {
 function hasPreview(r: PlanResource | null | undefined): boolean {
   if (!r) return false;
   if (state.opts.showLlm !== false && r.llmInsight) return true;
-  if (r.type === "aws_security_group" || r.type === "aws_network_acl") return true;
+  if (ruleSetFor(r)) return true;
   return !!attrPreviewRows(r).value;
 }
 
@@ -105,21 +101,18 @@ function showRulePop(addr: string, x: number, y: number): void {
   if (!popEl) return;
   var r = state.model && state.model.byAddr[addr];
   if (!r) return;
-  var isSg = r.type === "aws_security_group";
-  var isNacl = r.type === "aws_network_acl";
+  var set = ruleSetFor(r);
 
   var body: SafeHtml = html``;
-  if (isSg || isNacl){
+  if (set){
+    var rs = set;
     body = html`
-      <div class="rp-dir">inbound</div>
-      ${raw(popRuleLines(r, "ingress", isNacl))}
-      <div class="rp-dir">outbound</div>
-      ${raw(popRuleLines(r, "egress", isNacl))}
-      <div class="rp-foot">
-        ${isSg
-          ? "Stateful: replies to allowed traffic return without a matching rule."
-          : "Stateless: each direction is evaluated on its own, first match wins."}
-      </div>
+      ${rs.directions.map(function(d: RuleListDirection){
+        return html`
+          <div class="rp-dir">${d.inbound ? "inbound" : "outbound"}</div>
+          ${raw(popRuleLines(r!, rs, d))}`;
+      })}
+      <div class="rp-foot">${rs.note}</div>
     `;
   } else {
     var rows = attrPreviewRows(r);
@@ -143,12 +136,12 @@ function showRulePop(addr: string, x: number, y: number): void {
     `;
   }
 
-  if (!llmSection.value && !body.value && !isSg && !isNacl) return;
+  if (!llmSection.value && !body.value && !set) return;
 
   popEl.innerHTML = html`
     <div class="rp-title">
       ${icoSvg(r.spec, 14)}
-      ${isSg ? "security group" : isNacl ? "network acl" : ((r.spec && r.spec.label) || r.type)}
+      ${set ? set.name : ((r.spec && r.spec.label) || r.type)}
       <b>${r.name}</b>
     </div>
     ${llmSection}
@@ -191,5 +184,5 @@ function hideRulePop(): void {
   wrap.addEventListener("scroll", hideRulePop);
 })();
 
-export { popEl, popRow, popRuleLines, showRulePop, hideRulePop };
+export { popEl, popRuleLines, showRulePop, hideRulePop };
 

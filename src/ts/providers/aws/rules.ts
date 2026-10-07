@@ -1,6 +1,43 @@
 // providers/aws/rules.ts — AWS Security Group and Network ACL rules
-import { escapeHtml } from "../../core/util.js";
-import { PlanResource, RuleSection, AwsRuleEntry } from "../../types/index.js";
+import { ProviderResource, RuleDescription, RuleListSpec, JsonValue, asList, valueAt } from "../../sdk/index.js";
+
+/* one ingress/egress entry of a security group or network ACL */
+interface AwsRuleEntry {
+  protocol?: string | number;
+  from_port?: number;
+  to_port?: number;
+  cidr_blocks?: string[];
+  ipv6_cidr_blocks?: string[];
+  prefix_list_ids?: string[];
+  security_groups?: string[];
+  self?: boolean;
+  cidr_block?: string;
+  ipv6_cidr_block?: string;
+  rule_no?: number;
+  action?: string;
+  description?: string;
+}
+
+/* Converts a plan value to an AwsRuleEntry, keeping only the fields this file
+   reads, and each only if it has the expected type. */
+function toRuleEntry(v: JsonValue): AwsRuleEntry {
+  var own = function(k: string): JsonValue | undefined { return Array.isArray(v) ? undefined : valueAt(v, k); };
+  var num = function(k: string): number | undefined { var x = own(k); return typeof x === "number" ? x : undefined; };
+  var str = function(k: string): string | undefined { var x = own(k); return typeof x === "string" ? x : undefined; };
+  var strs = function(k: string): string[] {
+    return asList(own(k)).filter(function(x: JsonValue){ return typeof x === "string"; }) as string[];
+  };
+  var proto = own("protocol");
+  return {
+    protocol: typeof proto === "string" || typeof proto === "number" ? proto : undefined,
+    from_port: num("from_port"), to_port: num("to_port"),
+    cidr_blocks: strs("cidr_blocks"), ipv6_cidr_blocks: strs("ipv6_cidr_blocks"),
+    prefix_list_ids: strs("prefix_list_ids"), security_groups: strs("security_groups"),
+    self: own("self") === true,
+    cidr_block: str("cidr_block"), ipv6_cidr_block: str("ipv6_cidr_block"),
+    rule_no: num("rule_no"), action: str("action"), description: str("description")
+  };
+}
 
 var PORT_NAME: Record<number, string> = {
   20:"ftp-data", 21:"ftp", 22:"ssh", 23:"telnet", 25:"smtp", 53:"dns",
@@ -46,127 +83,51 @@ function peerText(e: AwsRuleEntry): string {
   return out.length ? out.join(", ") : "\u2014";
 }
 
-function awsRulesHtml(r: PlanResource): RuleSection | null {
-  var isNacl = r.type === "aws_network_acl";
-  var isSg = r.type === "aws_security_group";
-  if (!isNacl && !isSg) return null;
+var DIRECTIONS = [
+  {attr: "ingress", inbound: true,  peerHeading: "Source"},
+  {attr: "egress",  inbound: false, peerHeading: "Destination"}
+];
 
-  function table(dir: string, entries?: any[]): string {
-    var peerHd = (dir === "ingress") ? "Source" : "Destination";
-    var h = '<div class="rules-cap">' + dir + '</div>';
-    if (!entries || !entries.length) return h + '<div class="none">no ' + dir + ' rules</div>';
-    var sorted = entries.slice();
-    if (isNacl) sorted.sort(function(a: any, b: any){ return (a.rule_no||0) - (b.rule_no||0); });
-    h += '<table><thead><tr>' +
-         (isNacl ? '<th>#</th>' : '') +
-         '<th>Proto</th><th>Ports</th><th></th><th>' + peerHd + '</th>' +
-         (isNacl ? '<th>Action</th>' : '') +
-         '</tr></thead><tbody>';
-    sorted.forEach(function(e: any){
-      h += '<tr>' +
-           (isNacl ? '<td>' + escapeHtml(e.rule_no) + '</td>' : '') +
-           '<td>' + escapeHtml(protoText(e.protocol)) + '</td>' +
-           '<td>' + escapeHtml(portText(e)) + '</td>' +
-           '<td class="svc">' + escapeHtml(portName(e)) + '</td>' +
-           '<td>' + escapeHtml(peerText(e)) + (e.description ? '<br><span style="color:var(--faint)">' + escapeHtml(e.description) + '</span>' : '') + '</td>' +
-           (isNacl ? '<td class="' + (e.action === "deny" ? "deny" : "allow") + '">' + escapeHtml(e.action) + '</td>' : '') +
-           '</tr>';
-    });
-    /* the implicit rule belongs in the same table, or the columns do not line up */
-    if (isNacl){
-      h += '<tr class="implicit"><td>*</td><td>all</td><td>all</td><td></td>' +
-           '<td>0.0.0.0/0</td><td class="deny">deny</td></tr>';
-    }
-    h += '</tbody></table>';
-    return h;
-  }
+var SG_RULES: RuleListSpec = {
+  title: "Security group rules", name: "security group", ordered: false,
+  note: "Stateful: replies to allowed traffic return without a matching rule.",
+  directions: DIRECTIONS
+};
 
-  var out = '<div class="rules">';
-  var attrs = r.attrs || {};
-  out += table("ingress", attrs.ingress);
-  out += table("egress", attrs.egress);
-  if (isSg) out += '<div class="none" style="padding-top:8px">Stateful: replies to allowed traffic return without a matching rule.</div>';
-  if (isNacl) out += '<div class="none" style="padding-top:8px">Stateless: each direction is evaluated independently, first match wins.</div>';
-  out += '</div>';
-  return {title: isSg ? "Security group rules" : "Network ACL rules", body: out};
+var NACL_RULES: RuleListSpec = {
+  title: "Network ACL rules", name: "network acl", ordered: true,
+  note: "Stateless: each direction is evaluated independently, first match wins.",
+  directions: DIRECTIONS,
+  implicit: {number: "*", ports: "all", protocol: "all", service: "", peer: "0.0.0.0/0", action: "deny"}
+};
+
+function awsRuleSet(r: ProviderResource): RuleListSpec | null {
+  if (r.type === "aws_security_group") return SG_RULES;
+  if (r.type === "aws_network_acl") return NACL_RULES;
+  return null;
 }
 
-function awsIsRuleAttr(kOrR: any, aOrK?: any, bOrA?: any, maybeB?: any): boolean {
-  var k = maybeB !== undefined ? aOrK : kOrR;
-  var a = maybeB !== undefined ? bOrA : aOrK;
-  var b = maybeB !== undefined ? maybeB : bOrA;
-  if (k !== "ingress" && k !== "egress") return false;
-  return (Array.isArray(a) || a == null) && (Array.isArray(b) || b == null);
+function awsDescribeRule(v: JsonValue): RuleDescription {
+  var e = toRuleEntry(v);
+  return {
+    ports: portText(e),
+    service: portName(e),
+    protocol: protoText(e.protocol),
+    peer: peerText(e),
+    number: e.rule_no != null ? String(e.rule_no) : null,
+    order: e.rule_no || 0,
+    action: e.action != null ? String(e.action) : null,
+    description: e.description ? String(e.description) : null
+  };
 }
 
-function awsRuleKey(rOrE: any, maybeE?: any): string {
-  var e = maybeE !== undefined ? maybeE : rOrE;
+function awsRuleKey(v: JsonValue): string {
+  var e = toRuleEntry(v);
   return [e.action || "", e.protocol, e.from_port, e.to_port,
           peerText(e), e.rule_no == null ? "" : e.rule_no].join("|");
 }
 
-function awsRuleRow(rOrE: any, markOrE?: any, dirOrMark?: any, maybeDir?: any): string {
-  var e = maybeDir !== undefined ? markOrE : rOrE;
-  var mark = maybeDir !== undefined ? dirOrMark : markOrE;
-  var dir = maybeDir !== undefined ? maybeDir : dirOrMark;
-  var cls = mark === "+" ? "added" : (mark === "-" ? "removed" : "kept");
-  return '<div class="rdiff-row ' + cls + '">' +
-           '<span class="m">' + (mark || "\u00a0") + '</span>' +
-           '<span class="p">' + escapeHtml(portText(e)) + '</span>' +
-           '<span class="s">' + escapeHtml(portName(e)) + '</span>' +
-           '<span class="pr">' + escapeHtml(protoText(e.protocol)) + '</span>' +
-           '<span class="pe">' + escapeHtml(peerText(e)) +
-             (e.rule_no != null ? ' #' + escapeHtml(e.rule_no) : '') + '</span>' +
-           (e.description ? '<span class="d">' + escapeHtml(e.description) + '</span>' : '') +
-         '</div>';
-}
-
-function awsPopRow(e: AwsRuleEntry, dir: string, isNacl?: boolean, mark?: string): string {
-  var arrow = dir === "ingress" ? "\u2190" : "\u2192";
-  var deny = e.action === "deny";
-  var cls = mark === "+" ? "added" : mark === "-" ? "removed" : (deny ? "deny" : "allow");
-  return '<div class="rp-rule ' + cls + '">' +
-           '<span class="rp-mark">' + (mark || "") + '</span>' +
-           '<span class="rp-arrow">' + arrow + '</span>' +
-           '<span class="rp-port">' + escapeHtml(portText(e)) + '</span>' +
-           '<span class="rp-svc">' + escapeHtml(portName(e)) + '</span>' +
-           '<span class="rp-proto">' + escapeHtml(protoText(e.protocol)) + '</span>' +
-           '<span class="rp-peer">' + escapeHtml(peerText(e)) +
-             (isNacl && e.rule_no != null ? ' <span class="rp-no">#' + escapeHtml(e.rule_no) + '</span>' : '') +
-           '</span>' +
-         '</div>';
-}
-
-function awsRuleLines(r: PlanResource, dir: string, isNacl?: boolean, opts?: any, matchRulesFn?: any, attrKindFn?: any, sameValFn?: any): string {
-  var after = (r.attrs || {})[dir];
-  var before = (r.before || {})[dir];
-  var mode = (opts && opts.mode) ? opts.mode : "all";
-  var isSame = sameValFn ? sameValFn(before, after) : (JSON.stringify(before) === JSON.stringify(after));
-  var changed = mode === "changes" &&
-                r.action !== "create" && r.action !== "no-op" &&
-                Array.isArray(before) && !isSame;
-
-  var out: string;
-  if (changed && matchRulesFn && attrKindFn){
-    out = matchRulesFn(before, after, attrKindFn(r.type, dir))
-            .map(function(m: any){ return awsPopRow(m.rule, dir, isNacl, m.mark); }).join("");
-  } else {
-    var entries = Array.isArray(after) ? after : [];
-    if (!entries.length) return '<div class="rp-none">no ' + dir + ' rules</div>';
-    var list = entries.slice();
-    if (isNacl) list.sort(function(a: any, b: any){ return (a.rule_no || 0) - (b.rule_no || 0); });
-    out = list.map(function(e: any){ return awsPopRow(e, dir, isNacl, ""); }).join("");
-  }
-  if (!out) return '<div class="rp-none">no ' + dir + ' rules</div>';
-
-  if (isNacl){
-    out += awsPopRow({action:"deny", protocol:"-1", from_port:0, to_port:0,
-                   cidr_block:"0.0.0.0/0"}, dir, false, "");
-  }
-  return out;
-}
-
 export {
   PORT_NAME, portName, portText, protoText, peerText,
-  awsRulesHtml, awsIsRuleAttr, awsRuleKey, awsRuleRow, awsPopRow, awsRuleLines
+  awsRuleSet, awsDescribeRule, awsRuleKey
 };

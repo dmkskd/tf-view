@@ -1,8 +1,8 @@
 import { $, html, type SafeHtml } from "../core/util.js";
-import { CAT, blockHeight } from "../providers/registry.js";
+import { categoryColor, blockHeight, typeWithoutPrefix, tileSubtitleFor, getProviderForResource } from "../core/registry.js";
 import { TW, TH, tileHeight, setTileHeight, buildTree } from "../core/layout.js";
 import { fitCanvas, applyTransform } from "./iso.js";
-import { sameVal } from "../core/diff.js";
+import { sameVal, changedKeys } from "../core/diff.js";
 import { state, setSelected, notifySelect, notifyRender } from "../core/state.js";
 import { buildTileLlmChipHtml } from "./llm-review.js";
 import type { PlanModel, PlanResource, CatalogEntry, LayoutGroup } from "../types/index.js";
@@ -15,33 +15,19 @@ var ACTION_COLOR = {
 };
 
 function icoSvg(spec: CatalogEntry | null | undefined, size: number): SafeHtml {
-  var color = (spec && spec.cat && (CAT as any)[spec.cat]) ? (CAT as any)[spec.cat] : "var(--warn)";
+  var color = (spec && categoryColor(spec.cat)) || "var(--warn)";
   var id = spec ? spec.icon : "i-unknown";
   return html`<svg class="ico" style="color:${color}" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true"><use href="#${id}"/></svg>`;
 }
 
-function changedKeys(r: PlanResource): string[] {
-  if (r.action === "create" || r.action === "no-op") return [];
-  var before: Record<string, any> = r.before || {}, after: Record<string, any> = r.attrs || {}, keys: string[] = [];
-  Object.keys(before).concat(Object.keys(after)).forEach(function(k: string){
-    if (keys.indexOf(k) < 0 && !sameVal(before[k], after[k])) keys.push(k);
-  });
-  Object.keys(r.unknown || {}).forEach(function(k: string){
-    if ((r.unknown as any)[k] === true && keys.indexOf(k) < 0 && before[k] !== undefined) keys.push(k);
-  });
-  return keys.sort();
-}
-
 function titleFor(r: PlanResource): string {
   if (r.spec) return r.spec.label;
-  return r.type.replace(/^aws_/, "").replace(/_/g, " ").replace(/\b\w/g, function(c: string){ return c.toUpperCase(); });
+  return typeWithoutPrefix(r.type, getProviderForResource(r)).replace(/_/g, " ").replace(/\b\w/g, function(c: string){ return c.toUpperCase(); });
 }
 
 function subFor(r: PlanResource): string {
   if (r.spec && r.spec.sub && (r.attrs as any)[r.spec.sub]){
-    var v = String((r.attrs as any)[r.spec.sub]);
-    if (r.type === "aws_vpc_endpoint") return v.split(".").slice(3).join(".") || v;
-    return v;
+    return tileSubtitleFor(r, String((r.attrs as any)[r.spec.sub]));
   }
   if ((r.attrs as any).cidr_block) return String((r.attrs as any).cidr_block);
   return "";
@@ -138,7 +124,7 @@ function render(): void {
       } else if (g.cls === "region" || g.cls === "az"){
         ic = html`<svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-region"/></svg>`;
       } else if (g.res && g.res.spec){
-        var catCol = (g.res.spec.cat && (CAT as any)[g.res.spec.cat] ? (CAT as any)[g.res.spec.cat] : "var(--warn)");
+        var catCol = categoryColor(g.res.spec.cat) || "var(--warn)";
         ic = html`<svg class="tile" viewBox="0 0 48 48" aria-hidden="true" style="color:${catCol}"><use href="#${g.res.spec.icon}"/></svg>`;
       }
       var gAct: SafeHtml | null = null;
@@ -336,7 +322,7 @@ function drawEdges(): void {
     var p = document.createElementNS("http://www.w3.org/2000/svg","path");
     p.setAttribute("d", "M" + a.x + "," + a.y + " C" + mx + "," + a.y + " " + mx + "," + b.y + " " + b.x + "," + b.y);
     p.setAttribute("fill","none");
-    p.setAttribute("stroke", (selected && (pair[0]===selected||pair[1]===selected)) ? "var(--aws-net)" : "var(--line)");
+    p.setAttribute("stroke", (selected && (pair[0]===selected||pair[1]===selected)) ? "var(--accent)" : "var(--line)");
     p.setAttribute("stroke-width", (selected && (pair[0]===selected||pair[1]===selected)) ? "2" : "1.2");
     p.setAttribute("stroke-dasharray", "5 4");
     p.setAttribute("opacity", state.opts.edges === "all" && !selected ? ".55" : "1");

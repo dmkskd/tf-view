@@ -1,9 +1,9 @@
-import { CatalogEntry, PlanResource } from "../../types/index.js";
+import { CatalogEntry, ProviderResource } from "../../sdk/index.js";
 
 var AWS_REG: Record<string, CatalogEntry> = {
-  aws_vpc:                          {kind:"group", g:"vpc",    label:"VPC",                  icon:"i-vpc",    cat:"net",
+  aws_vpc:                          {kind:"group",    label:"VPC",                  icon:"i-vpc",    cat:"net",
                                       preview:["cidr_block","enable_dns_support","enable_dns_hostnames"]},
-  aws_subnet:                       {kind:"group", g:"subnet", label:"Subnet",               icon:"i-subnet", cat:"net",
+  aws_subnet:                       {kind:"group", label:"Subnet",               icon:"i-subnet", cat:"net",
                                       preview:["cidr_block","availability_zone","map_public_ip_on_launch"]},
 
   aws_instance:                     {kind:"node", label:"EC2 Instance",        icon:"i-ec2",    cat:"compute", sub:"instance_type",
@@ -12,28 +12,28 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["instance_type","image_id"]},
   aws_autoscaling_group:            {kind:"node", label:"Auto Scaling Group",  icon:"i-ec2",    cat:"compute",
                                       preview:["min_size","max_size","desired_capacity"]},
-  aws_internet_gateway:             {kind:"node", label:"Internet Gateway",    icon:"i-igw",    cat:"net",  scope:"vpc",
+  aws_internet_gateway:             {kind:"node", label:"Internet Gateway",    icon:"i-igw",    cat:"net",  scope:"network",
                                       preview:["vpc_id"]},
-  aws_egress_only_internet_gateway: {kind:"node", label:"Egress-Only IGW",     icon:"i-igw",    cat:"net",  scope:"vpc",
+  aws_egress_only_internet_gateway: {kind:"node", label:"Egress-Only IGW",     icon:"i-igw",    cat:"net",  scope:"network",
                                       preview:["vpc_id"]},
   aws_nat_gateway:                  {kind:"node", label:"NAT Gateway",         icon:"i-nat",    cat:"net",
                                       preview:["subnet_id","connectivity_type","allocation_id"]},
-  aws_route_table:                  {kind:"node", label:"Route Table",         icon:"i-rt",     cat:"net",  scope:"vpc",
+  aws_route_table:                  {kind:"node", label:"Route Table",         icon:"i-rt",     cat:"net",  scope:"network",
                                       preview:["vpc_id"]},
-  aws_route:                        {kind:"node", label:"Route",               icon:"i-rt",     cat:"net",  scope:"vpc",
+  aws_route:                        {kind:"node", label:"Route",               icon:"i-rt",     cat:"net",  scope:"network",
                                       preview:["destination_cidr_block","gateway_id","nat_gateway_id"]},
   aws_vpc_endpoint:                 {kind:"node", label:"VPC Endpoint",        icon:"i-vpce",   cat:"net",  sub:"service_name",
                                       preview:["service_name","vpc_endpoint_type","vpc_id"]},
-  aws_network_acl:                  {kind:"node", label:"Network ACL",         icon:"i-nacl",   cat:"sec",  scope:"vpc",
+  aws_network_acl:                  {kind:"node", label:"Network ACL",         icon:"i-nacl",   cat:"sec",  scope:"network",
                                       preview:["vpc_id"]},
-  aws_security_group:               {kind:"group", g:"sg", label:"Security Group", icon:"i-sg",  cat:"sec",  scope:"vpc"},
+  aws_security_group:               {kind:"group", label:"Security Group", icon:"i-sg",  cat:"sec",  scope:"network"},
   /* the VPC's own default objects: Terraform adopts them rather than creating
      them, and every plan using the public VPC module has all three */
-  aws_default_network_acl:          {kind:"node", label:"Default Network ACL", icon:"i-nacl",   cat:"sec",  scope:"vpc",
+  aws_default_network_acl:          {kind:"node", label:"Default Network ACL", icon:"i-nacl",   cat:"sec",  scope:"network",
                                       preview:["vpc_id"]},
-  aws_default_route_table:          {kind:"node", label:"Default Route Table", icon:"i-rt",     cat:"net",  scope:"vpc",
+  aws_default_route_table:          {kind:"node", label:"Default Route Table", icon:"i-rt",     cat:"net",  scope:"network",
                                       preview:["default_route_table_id"]},
-  aws_default_security_group:       {kind:"node", label:"Default Security Group", icon:"i-sg",  cat:"sec",  scope:"vpc",
+  aws_default_security_group:       {kind:"node", label:"Default Security Group", icon:"i-sg",  cat:"sec",  scope:"network",
                                       preview:["vpc_id"]},
   aws_eip:                          {kind:"node", label:"Elastic IP",          icon:"i-eip",    cat:"net",
                                       preview:["domain","public_ip","instance"]},
@@ -41,11 +41,11 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["load_balancer_type","internal"]},
   aws_alb:                          {kind:"node", label:"Load Balancer",       icon:"i-lb",     cat:"net",
                                       preview:["load_balancer_type","internal"]},
-  aws_lb_target_group:              {kind:"node", label:"Target Group",        icon:"i-lb",     cat:"net",  scope:"vpc",
+  aws_lb_target_group:              {kind:"node", label:"Target Group",        icon:"i-lb",     cat:"net",  scope:"network",
                                       preview:["port","protocol","target_type"]},
   aws_db_instance:                  {kind:"node", label:"RDS Instance",        icon:"i-db",     cat:"db",   sub:"engine",
                                       preview:["engine","engine_version","instance_class","allocated_storage","multi_az"]},
-  aws_eks_cluster:                      {kind:"node", label:"EKS Cluster",            icon:"i-eks",    cat:"compute", sub:"version", scope:"vpc",
+  aws_eks_cluster:                      {kind:"node", label:"EKS Cluster",            icon:"i-eks",    cat:"compute", sub:"version", scope:"network",
                                           preview:["version","role_arn","endpoint"]},
   aws_eks_node_group:                   {kind:"node", label:"EKS Node Group",         icon:"i-eks",    cat:"compute", sub:"instance_types",
                                           preview:["cluster_name","instance_types","scaling_config","capacity_type"]},
@@ -131,13 +131,13 @@ var AWS_REG: Record<string, CatalogEntry> = {
 };
 
 var CAT: Record<string, string> = {
-  compute:  "var(--aws-compute)",
-  net:      "var(--aws-net)",
-  sec:      "var(--aws-sec)",
-  storage:  "var(--aws-storage)",
-  db:       "var(--aws-db)",
-  mgmt:     "var(--aws-mgmt)",
-  integ:    "var(--aws-integ)"
+  compute:  "var(--cat-compute)",
+  net:      "var(--cat-net)",
+  sec:      "var(--cat-sec)",
+  storage:  "var(--cat-storage)",
+  db:       "var(--cat-db)",
+  mgmt:     "var(--cat-mgmt)",
+  integ:    "var(--cat-integ)"
 };
 
 var CAT_LABEL: [string, string][] = [
@@ -151,11 +151,9 @@ var CAT_LABEL: [string, string][] = [
   ["other",   "Not implemented"]
 ];
 
-var SIZE_H: Record<string, number> = {};
-
-function awsBlockHeight(r: PlanResource): number {
-  if (r.kind === "assoc") return 10;
+function awsBlockHeight(r: ProviderResource): number {
+  if (r.spec && r.spec.kind === "assoc") return 10;
   return 26;
 }
 
-export { AWS_REG, CAT, CAT_LABEL, SIZE_H, awsBlockHeight };
+export { AWS_REG, CAT, CAT_LABEL, awsBlockHeight };

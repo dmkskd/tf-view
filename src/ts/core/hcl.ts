@@ -1,4 +1,5 @@
 import { escapeHtml } from "./util.js";
+import { SENSITIVE } from "./redact.js";
 import { PlanResource, TerraformConfigurationResource } from "../types/index.js";
 
 /* ---- Terraform block, rebuilt from configuration.expressions. The plan does
@@ -8,6 +9,7 @@ import { PlanResource, TerraformConfigurationResource } from "../types/index.js"
 function hclLit(v: any, ind: string): string {
   if (v === null || v === undefined) return "null";
   if (typeof v === "boolean" || typeof v === "number") return String(v);
+  if (v === SENSITIVE) return SENSITIVE;
   if (typeof v === "string") return JSON.stringify(v);
   if (Array.isArray(v)){
     if (!v.length) return "[]";
@@ -36,7 +38,8 @@ function exprVal(e: any, resolved: any, ind: string, key?: string): { txt: strin
   if (e && Object.prototype.hasOwnProperty.call(e, "constant_value")) return {txt:hclLit(e.constant_value, ind)};
   if (e && e.references && e.references.length){
     var refs: string[] = e.references;
-    var direct = refs.filter(function(x: string){ return /^(aws_|data\.)/.test(x); });
+    /* a resource or data source address, of any provider's type */
+    var direct = refs.filter(function(x: string){ return /^(data\.)?[A-Za-z][A-Za-z0-9-]*_[A-Za-z0-9_-]+\./.test(x); });
     if (direct.length && refs.length <= 2){
       /* a reference feeding a list attribute keeps its brackets */
       var isList = Array.isArray(resolved) || (key && LIST_ATTR.test(key));
@@ -63,6 +66,9 @@ function hclFor(r: PlanResource, cfg?: TerraformConfigurationResource | any): st
     }
   });
 
+  /* cfg is an entry of model.cfgByAddr, in which the parser has already
+     replaced the literals of sensitive attributes (core/redact.ts,
+     redactConfig). */
   var keys = Object.keys(cfg.expressions).sort();
   var blocks: { k: string; items: any[]; wrapped: boolean }[] = [];
   keys.forEach(function(k: string){

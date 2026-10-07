@@ -16,7 +16,7 @@
     letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
   }
   .tsec > summary::-webkit-details-marker{display:none;}
-  .tsec > summary:hover{color:var(--aws-net);}
+  .tsec > summary:hover{color:var(--accent);}
   .tsec .chev{width:9px; height:9px; flex:none; color:var(--faint); align-self:center;
     transition:transform .18s ease;}
   .tsec[open] > summary .chev{transform:rotate(90deg);}
@@ -50,10 +50,10 @@
   #textPlan .hd-replace{background:color-mix(in srgb, var(--replace) 22%, transparent);}
   #textPlan .hd-delete{background:color-mix(in srgb, var(--destroy) 22%, transparent);}
   #textPlan .a{color:var(--muted);}
-  #textPlan .t{color:var(--aws-compute);}
+  #textPlan .t{color:var(--cat-compute);}
   #textPlan .n{color:var(--update);}
   #textPlan .b{color:var(--replace);}
-  #textPlan .r{color:var(--aws-db);}
+  #textPlan .r{color:var(--cat-db);}
   #textPlan .c{color:var(--faint);}
   #textPlan .k{color:var(--ink); font-weight:600;}
   #textPlan .add{color:var(--create); font-weight:700;}
@@ -68,7 +68,7 @@
   #textPlan .llm-risk{font-weight:700;}
   #textPlan .llm-risk.critical{color:var(--err);}
   #textPlan .llm-risk.high{color:var(--warn);}
-  #textPlan .llm-risk.medium{color:var(--aws-compute);}
+  #textPlan .llm-risk.medium{color:var(--cat-compute);}
   #textPlan .llm-risk.low{color:var(--create);}
   #textPlan .head{
     display:inline-block; margin-top:6px;

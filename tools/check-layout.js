@@ -13,23 +13,13 @@
 //   node tools/check-layout.js | diff tools/baseline/check-layout.txt -
 //   node tools/check-layout.js > tools/baseline/check-layout.txt  (to re-record)
 
-const fs = require("fs");
-// a harness that throws must not be mistaken for valid output
-const defaultPath = fs.existsSync(__dirname + "/../dist/index.html")
-  ? __dirname + "/../dist/index.html"
-  : __dirname + "/../index.html";
-const h = fs.readFileSync(process.argv[2] || defaultPath, "utf8");
-const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
-const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));
-global.escapeHtml = s => String(s).replace(/[&<>"']/g,
-  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-
-eval(slice("var AWS_REG = {", "var ACTION_COLOR"));
-eval(slice("function actionOf", "/* ============================================================\n     3. LAYOUT"));
-eval(slice("/* ============================================================\n     3. LAYOUT", "/* ============================================================\n     4. RENDER"));
+const { load } = require("./lib/app.js");
+const app = load(process.argv[2]);
+const { parsePlan, buildTree, tileHeight, setTileHeight } = app.exports;
 
 const plans = {
-  sample: JSON.parse(h.match(/id="embedded-plan">([\s\S]*?)<\/script>/)[1]),
+  sample: app.samplePlan(),
+  mixed: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/mixed-aws-gcp/plan.json", "utf8")),
 };
 const modes = [
   {mode:"all", showAssoc:false, showUnsup:true, edges:"select"},
@@ -42,9 +32,7 @@ for (const [name, plan] of Object.entries(plans)) {
   for (const opts of modes) {
     const model = parsePlan(plan, name);
     model.resources.forEach(r => { r.enabledType = true; });  // what load() does
-    TH = (typeof tileHeight === "function")
-      ? tileHeight(opts.mode)
-      : (opts.mode === "changes" ? 88 : 66);   // pre-refactor builds
+    setTileHeight(tileHeight(opts.mode));
     const tree = buildTree(model, opts);
     out.push(`### ${name} mode=${opts.mode} assoc=${opts.showAssoc} -> ${tree.w}x${tree.h}`);
     (function walk(g, d) {

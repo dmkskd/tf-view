@@ -109,21 +109,21 @@
   .cov-grp[open] .chev{transform:rotate(90deg);}
   .cov-note{font-size:11.5px; color:var(--faint); line-height:1.45; padding:2px 0 4px 14px;}
   .cov-act{
-    margin:2px 0 4px 14px; font-size:11.5px; color:var(--aws-net); background:none; border:1px solid var(--line);
+    margin:2px 0 4px 14px; font-size:11.5px; color:var(--accent); background:none; border:1px solid var(--line);
     border-radius:6px; padding:2px 8px; cursor:pointer;
   }
-  .cov-act:hover{border-color:var(--aws-net);}
+  .cov-act:hover{border-color:var(--accent);}
   .cov-list{
     list-style:none; margin:2px 0 6px 14px; padding:0; max-height:170px; overflow-y:auto;
     font-family:"IBM Plex Mono",monospace; font-size:11px; line-height:1.7; color:var(--body);
     overflow-wrap:anywhere;
   }
   .cov-list li[data-goto]{cursor:pointer;}
-  .cov-list li[data-goto]:hover{color:var(--aws-net); text-decoration:underline; text-underline-offset:2px;}
+  .cov-list li[data-goto]:hover{color:var(--accent); text-decoration:underline; text-underline-offset:2px;}
   .sw{width:8px; height:8px; border-radius:2px; flex:none;}
   .sw.sw-ok{background:var(--create);}
   .sw.sw-warn{background:var(--warn);}
-  .sw.sw-net{background:var(--aws-net);}
+  .sw.sw-net{background:var(--cat-net);}
 
   /* diagnostics */
   .diag{display:flex; flex-direction:column; gap:7px;}
@@ -169,7 +169,7 @@
   .h3-tools i{color:var(--line); font-style:normal;}
   .h3-tools button{
     font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600;
-    letter-spacing:.06em; text-transform:uppercase; color:var(--aws-net);
+    letter-spacing:.06em; text-transform:uppercase; color:var(--accent);
     background:none; border:0; padding:1px 3px; cursor:pointer; border-radius:4px;
   }
   .h3-tools button:hover{background:var(--surface-2);}
@@ -197,7 +197,7 @@
   .flt.unsup .nm{color:var(--warn);}
   .flt .ct{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--faint);}
   .flt svg{width:18px; height:18px;}
-  input[type=checkbox]{accent-color:var(--aws-net); width:14px; height:14px; cursor:pointer; margin:0;}
+  input[type=checkbox]{accent-color:var(--accent); width:14px; height:14px; cursor:pointer; margin:0;}
 
   .opts{display:flex; flex-direction:column; gap:8px;}
   .opt{display:flex; align-items:center; gap:9px; font-size:13px; cursor:pointer;}

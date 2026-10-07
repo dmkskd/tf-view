@@ -1,6 +1,7 @@
 import { escapeHtml, $, html, raw, copyText, type SafeHtml, HtmlSafeString } from "../core/util.js";
 import { linkTitle } from "../core/links.js";
-import { CLI, consoleUrl, rulesHtml, blockHeight } from "../providers/registry.js";
+import { cliCommands, consoleLink, blockHeight, toolNames } from "../core/registry.js";
+import { rulesSection } from "../core/rules.js";
 import { hclFor, hclHighlight } from "../core/hcl.js";
 import { cfgKey, listRefs, RefRow } from "../core/references.js";
 import { modelSnapshot } from "../core/snapshot.js";
@@ -372,16 +373,17 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
   }},
 
   {key:"rules", build: function(r: PlanResource){
-    var rl = rulesHtml(r);
+    var rl = rulesSection(r);
     return rl && {title:rl.title, count:null, body:rl.body};
   }},
 
   {key:"cli", build: function(r: PlanResource, ctx: any){
     var model = state.model;
-    var cmds = CLI(r, {region: model && model.region});
+    var cmds = cliCommands(r, model);
+    var cliTitle = "Inspect with the " + toolNames(r).cli;
     ctx.cmds = cmds;
     if (!cmds.length){
-      return {title:"Inspect with the AWS CLI", count:0,
+      return {title:cliTitle, count:0,
               body: note(html`No CLI recipe for <code>${r.type}</code> yet.`)};
     }
     var items = cmds.map(function(c: CliCommand, i: number){
@@ -390,9 +392,9 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
     });
     var body = html`
       <div class="cli">${items}</div>
-      ${note("Placeholders in angle brackets are ids that only exist after apply.")}
+      ${note("Placeholders in angle brackets ('<vpc-id>') stand for IDs assigned at apply time: replace them before running a command.")}
     `;
-    return {title:"Inspect with the AWS CLI", count:cmds.length, body: body};
+    return {title:cliTitle, count:cmds.length, body: body};
   }},
 
   {key:"attrs", build: function(r: PlanResource){
@@ -513,7 +515,8 @@ var ACTION_PHRASE: Record<string, [string, string]> = {
 };
 
 function detailHeader(r: PlanResource): SafeHtml {
-  var link = consoleUrl(r, {region: state.model && state.model.region});
+  var link = consoleLink(r, state.model);
+  var consoleName = toolNames(r).console;
   var phrase = ACTION_PHRASE[r.action] || ["", r.action];
   var hasFlags = !r.supported;
 
@@ -530,7 +533,7 @@ function detailHeader(r: PlanResource): SafeHtml {
           ${phrase[0] && html`<i>${phrase[0]}</i>`}
         </span>
       </div>
-      ${link && html`<a class="console-link" href="${link}" title="${linkTitle(link)}" target="_blank" rel="noopener noreferrer">Open in AWS console \u2197</a>`}
+      ${link && html`<a class="console-link" href="${link}" title="${linkTitle(link, consoleName)}" target="_blank" rel="noopener noreferrer">Open in ${consoleName} \u2197</a>`}
       ${hasFlags && html`
         <div class="badges">
           ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}

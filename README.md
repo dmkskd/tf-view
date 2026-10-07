@@ -44,7 +44,7 @@ The optional `explain` command adds model-generated review annotations. See the 
 ## Things to know
 
 - Reads `terraform show -json` plan output. Containment is inferred from `configuration.root_module.resources[].expressions[*].references`.
-- AWS only. Other providers are reported, not supported.
+- AWS, plus a starter Google Cloud provider (networks, subnetworks, instances, buckets). Resources of other providers are reported, not drawn. See [Development](docs/DEVELOPMENT.md#providers) to add one.
 - Unrecognised resource types are drawn as dashed amber tiles and reported.
 - Unrecognised and unplaced resources are listed under Validation.
 

@@ -1,45 +1,41 @@
 // providers/gcp/placement.ts — GCP container hierarchy
-import { mkGroup } from "../../core/tree.js";
-import { LayoutContext, LayoutGroup, PlanResource } from "../../types/index.js";
+//
+// Places each network in the region box, each subnetwork in the network it
+// references (or in the region box), and other resources in the subnetwork,
+// or else the network, they reference.
+import { PlacementApi, PlacementSession, ContainerRef, ProviderResource, asText } from "../../sdk/index.js";
 
-function placeGcpNetworks(ctx: LayoutContext): void {
-  ctx.vis.forEach(function(r: PlanResource) {
+function startGcpPlacement(api: PlacementApi): PlacementSession {
+  var networkBox: Record<string, ContainerRef> = {};
+  var subnetBox: Record<string, ContainerRef> = {};
+  var byAddr: Record<string, ProviderResource> = {};
+  api.resources.forEach(function(r: ProviderResource){ byAddr[r.addr] = r; });
+
+  api.resources.forEach(function(r: ProviderResource){
     if (r.type !== "google_compute_network") return;
-    var g = mkGroup("vpc", "VPC " + r.name, "", 1200);
-    g.res = r;
-    ctx.vpcGroups[r.addr] = g;
-    ctx.region.children.push(g);
+    networkBox[r.addr] = api.addContainer(api.region, {cls: "vpc", label: "VPC " + r.name, maxW: 1200, resource: r.addr});
   });
-}
 
-function placeGcpSubnetworks(ctx: LayoutContext): void {
-  ctx.vis.forEach(function(r: PlanResource) {
+  api.resources.forEach(function(r: ProviderResource){
     if (r.type !== "google_compute_subnetwork") return;
-    var g = mkGroup("subnet", "Subnet " + r.name, (r.attrs && r.attrs.ip_cidr_range) || "", 620);
-    g.res = r;
-    ctx.subnetGroups[r.addr] = g;
-    ctx.region.children.push(g);
+    var network: ContainerRef | null = null;
+    for (var i = 0; i < r.refs.length && !network; i++) network = networkBox[r.refs[i]] || null;
+    subnetBox[r.addr] = api.addContainer(network || api.region, {cls: "subnet", label: "Subnet " + r.name,
+      meta: asText(r.attrs.ip_cidr_range), maxW: 620, resource: r.addr});
   });
+
+  return {
+    containerOf: function(addr: string): ContainerRef | null {
+      var r = byAddr[addr];
+      if (!r) return null;
+      for (var i = 0; i < r.refs.length; i++){
+        var ref = r.refs[i];
+        if (subnetBox[ref]) return subnetBox[ref];
+        if (networkBox[ref]) return networkBox[ref];
+      }
+      return null;
+    }
+  };
 }
 
-function placeGcpContainers(ctx: LayoutContext): void {
-  placeGcpNetworks(ctx);
-  placeGcpSubnetworks(ctx);
-}
-
-function containerOfGcp(ctx: LayoutContext, r: PlanResource): LayoutGroup | null {
-  for (var i = 0; i < (r.refs || []).length; i++) {
-    var ref = r.refs[i];
-    if (ctx.subnetGroups && ctx.subnetGroups[ref]) return ctx.subnetGroups[ref];
-    if (ctx.vpcGroups && ctx.vpcGroups[ref]) return ctx.vpcGroups[ref];
-  }
-  return null;
-}
-
-export {
-  placeGcpNetworks,
-  placeGcpSubnetworks,
-  placeGcpContainers,
-  containerOfGcp
-};
-
+export { startGcpPlacement };

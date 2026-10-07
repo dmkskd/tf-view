@@ -42,6 +42,9 @@
     background:var(--gface-e); border-right:0;
     transform-origin:center right; transform:rotateY(-90deg);
   }
+  .canvas.iso .grp.clouds{background:none; border:0; box-shadow:none;}
+  .canvas.iso .grp.clouds::after,.canvas.iso .grp.clouds::before,
+  .canvas.iso .grp.clouds > .fc{display:none;}
   .canvas.iso .grp.cloud::after,.canvas.iso .grp.cloud::before,
   .canvas.iso .grp.cloud > .fc{--gh:10px;}
   .canvas.iso.dragging{transition:none;}
@@ -86,7 +89,7 @@
   .rulepop .rp-rule.added .rp-port,
   .rulepop .rp-rule.added .rp-svc,
   .rulepop .rp-rule.added .rp-mark{color:var(--create);}
-  .rulepop .rp-svc{color:var(--aws-net); font-size:10.5px; font-weight:600;}
+  .rulepop .rp-svc{color:var(--accent); font-size:10.5px; font-weight:600;}
   .rulepop .rp-arrow{font-weight:700;}
   .rulepop .rp-port{color:var(--ink); font-weight:600;}
   .rulepop .rp-proto{color:var(--muted); font-size:10.5px;}
@@ -132,7 +135,7 @@
     background:var(--warn-soft);
   }
   .rulepop .rp-llm[data-risk="MEDIUM"], .rulepop .rp-llm[data-risk="medium"]{
-    border-color:color-mix(in srgb, var(--aws-compute) 35%, var(--line));
+    border-color:color-mix(in srgb, var(--cat-compute) 35%, var(--line));
   }
   .rulepop .rp-llm[data-risk="LOW"], .rulepop .rp-llm[data-risk="low"]{
     border-color:color-mix(in srgb, var(--create) 35%, var(--line));
@@ -199,7 +202,7 @@
   .iso-hud b{font-family:"IBM Plex Mono",monospace; color:var(--ink); font-weight:500;}
   .iso-hud button{
     font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.06em;
-    text-transform:uppercase; color:var(--aws-net); background:none; border:0;
+    text-transform:uppercase; color:var(--accent); background:none; border:0;
     padding:2px 4px; cursor:pointer; border-radius:4px;
   }
   .iso-hud button:hover{background:var(--surface-2);}

@@ -222,55 +222,40 @@ fn generate_ephemeral_plan(offline: bool, destroy: bool, extra_args: &[String], 
     String::from_utf8(show_output.stdout).context("Plan output is not valid UTF-8")
 }
 
+/// Replace the contents of `<script type="application/json" id="{id}">` with `json`.
+/// Each `<` is replaced by `\u003c`. In valid JSON, `<` occurs only inside
+/// strings, where `\u003c` decodes to the same character; after the
+/// replacement the block contains no `<`, so it cannot contain the `</script>`
+/// that would end it early.
+fn fill_json_block(html: &str, id: &str, json: &str) -> Option<String> {
+    let tag = format!("<script type=\"application/json\" id=\"{}\">", id);
+    let content_start = html.find(&tag)? + tag.len();
+    let end_pos = html[content_start..].find("</script>")? + content_start;
+    let safe = json.trim().replace('<', "\\u003c");
+    let mut out = String::with_capacity(html.len() + safe.len());
+    out.push_str(&html[..content_start]);
+    out.push_str(&safe);
+    out.push_str(&html[end_pos..]);
+    Some(out)
+}
+
 /// Inject the JSON plan into the self-contained HTML template.
-/// Replaces `<` with `\u003c` in JSON strings to prevent `<script>` breakout XSS.
+///
+/// Writes only JSON data blocks, not scripts: the page's Content-Security-Policy
+/// lists only the hash of the page's own script in script-src, so the browser
+/// would block an added inline script. Boot settings go in the `tfview-config`
+/// block.
 pub fn inject_plan(html_template: &str, plan_json: &str, label: &str) -> Result<String> {
     let _: serde_json::Value = serde_json::from_str(plan_json)
         .context("Input is not valid JSON. Ensure input is generated via 'terraform show -json'.")?;
 
-    let primary_tag = "<script type=\"application/json\" id=\"injected-plan\">";
-    let fallback_tag = "<script type=\"application/json\" id=\"embedded-plan\">";
-    let end_tag = "</script>";
+    let with_plan = fill_json_block(html_template, "injected-plan", plan_json)
+        .or_else(|| fill_json_block(html_template, "embedded-plan", plan_json))
+        .context("Template does not contain an id=\"injected-plan\" or id=\"embedded-plan\" data block")?;
 
-    let (_start_pos, content_start) = if let Some(pos) = html_template.find(primary_tag) {
-        (pos, pos + primary_tag.len())
-    } else if let Some(pos) = html_template.find(fallback_tag) {
-        (pos, pos + fallback_tag.len())
-    } else {
-        anyhow::bail!("Template does not contain id=\"injected-plan\" or id=\"embedded-plan\" script tag");
-    };
-
-    let rest = &html_template[content_start..];
-    let end_pos = rest
-        .find(end_tag)
-        .context("Template closing </script> tag not found")? + content_start;
-
-    // Secure JSON against HTML </script> breakout:
-    // In valid JSON, '<' only appears in string literals. Replacing '<' with '\u003c'
-    // is 100% valid JSON and parses identically in JavaScript, while ensuring the HTML
-    // parser never terminates the <script> element prematurely.
-    let safe_plan_json = plan_json.replace('<', "\\u003c");
-
-    let safe_label_json = serde_json::to_string(label)
-        .unwrap_or_else(|_| "\"terraform plan\"".to_string())
-        .replace('<', "\\u003c");
-
-    let mut modified = String::with_capacity(html_template.len() + safe_plan_json.len() + 4096);
-    modified.push_str(&html_template[..content_start]);
-    modified.push_str(safe_plan_json.trim());
-    modified.push_str(&html_template[end_pos..]);
-
-    // Explicit auto-boot hook checked cleanly by app boot()
-    let auto_boot_snippet = format!(
-        "\n<script>\n  window.__TFVIEW_AUTOLOAD = true;\n  window.__TFVIEW_PLAN_LABEL = {};\n</script>\n",
-        safe_label_json
-    );
-
-    if let Some(body_pos) = modified.rfind("</body>") {
-        modified.insert_str(body_pos, &auto_boot_snippet);
-    }
-
-    Ok(modified)
+    let config = serde_json::json!({ "autoload": true, "label": label }).to_string();
+    fill_json_block(&with_plan, "tfview-config", &config)
+        .context("Template does not contain an id=\"tfview-config\" data block; rebuild dist/index.html")
 }
 
 /// Render and display (or save) the final self-contained HTML report.
@@ -480,49 +465,71 @@ async fn main() -> Result<()> {
 mod tests {
     use super::*;
 
+    const TEMPLATE: &str = r#"<!DOCTYPE html><html><head><script type="application/json" id="tfview-config">{}</script><script type="application/json" id="embedded-plan">{}</script></head><body></body></html>"#;
+
     #[test]
     fn test_inject_plan_escapes_script_breakout_xss() {
-        let template = r#"<!DOCTYPE html><html><head><script type="application/json" id="embedded-plan">{}</script></head><body></body></html>"#;
+        let template = r#"<!DOCTYPE html><html><head><script type="application/json" id="tfview-config">{}</script><script type="application/json" id="embedded-plan">{}</script></head><body></body></html>"#;
         let malicious_plan = r#"{"user_data": "echo </script><script>alert(1)</script>"}"#;
 
         let injected = inject_plan(template, malicious_plan, "test-plan").unwrap();
 
         // Must NOT contain literal </script> inside the embedded-plan content
         let start_pos = injected.find(r#"id="embedded-plan">"#).unwrap();
-        let end_pos = injected.find(r#"</script>"#).unwrap();
+        let end_pos = injected[start_pos..].find(r#"</script>"#).unwrap() + start_pos;
         let script_content = &injected[start_pos..end_pos];
 
         assert!(!script_content.contains("</script>"));
         assert!(script_content.contains(r#"\u003c/script>"#));
 
         // When parsed as JSON, it recovers the original string verbatim
-        let json_extracted = script_content.trim_start_matches(r#"id="embedded-plan">"#);
-        let parsed: serde_json::Value = serde_json::from_str(json_extracted).unwrap();
+        let parsed = block(&injected, "embedded-plan");
         assert_eq!(parsed["user_data"], "echo </script><script>alert(1)</script>");
     }
 
+    /// The text of the `id` data block, parsed.
+    fn block(html: &str, id: &str) -> serde_json::Value {
+        let tag = format!("id=\"{}\">", id);
+        let start = html.find(&tag).unwrap() + tag.len();
+        let end = html[start..].find("</script>").unwrap() + start;
+        serde_json::from_str(&html[start..end]).unwrap()
+    }
+
     #[test]
-    fn test_inject_plan_embeds_autoload_marker() {
-        let template = r#"<!DOCTYPE html><html><head><script type="application/json" id="embedded-plan">{}</script></head><body></body></html>"#;
+    fn test_inject_plan_writes_boot_config() {
+        let template = TEMPLATE;
         let plan = r#"{"format_version": "1.0"}"#;
 
         let injected = inject_plan(template, plan, "my-production-plan").unwrap();
 
-        assert!(injected.contains("window.__TFVIEW_AUTOLOAD = true;"));
-        assert!(injected.contains(r#"window.__TFVIEW_PLAN_LABEL = "my-production-plan";"#));
+        let cfg = block(&injected, "tfview-config");
+        assert_eq!(cfg["autoload"], true);
+        assert_eq!(cfg["label"], "my-production-plan");
+    }
+
+    #[test]
+    fn test_inject_plan_adds_no_script() {
+        // the page's CSP allows only its own script (by hash); an added inline script would be blocked
+        let injected = inject_plan(TEMPLATE, r#"{"format_version": "1.0"}"#, "x").unwrap();
+        assert_eq!(injected.matches("<script").count(), TEMPLATE.matches("<script").count());
+        assert!(!injected.contains("<script>"));
     }
 
     #[test]
     fn test_inject_plan_escapes_label_breakout_xss() {
-        let template = r#"<!DOCTYPE html><html><head><script type="application/json" id="embedded-plan">{}</script></head><body></body></html>"#;
         let plan = r#"{"format_version": "1.0"}"#;
         let malicious_label = r#"</script><script>alert('xss')</script>"#;
 
-        let injected = inject_plan(template, plan, malicious_label).unwrap();
+        let injected = inject_plan(TEMPLATE, plan, malicious_label).unwrap();
 
-        // Must NOT contain literal unescaped </script> inside the autoload script
         assert!(!injected.contains("</script><script>alert('xss')"));
-        assert!(injected.contains(r#"\u003c/script>\u003cscript>alert('xss')\u003c/script>"#));
+        assert_eq!(block(&injected, "tfview-config")["label"], malicious_label);
+    }
+
+    #[test]
+    fn test_inject_plan_requires_config_block() {
+        let old = r#"<html><body><script type="application/json" id="embedded-plan">{}</script></body></html>"#;
+        assert!(inject_plan(old, "{}", "x").is_err());
     }
 
     #[test]

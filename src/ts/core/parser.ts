@@ -1,9 +1,12 @@
 // core/parser.ts — Plan JSON parser, validators and reference extractor
-import { escapeHtml } from "./util.js";
-import { REG, isProviderSupported, isForeignType } from "../providers/registry.js";
-import { buildConfigIndex, refsFor, addStateEdges, listRefs, moduleOf, ConfigIndex } from "./references.js";
 import {
-  PlanModel, PlanResource, ActionType, TerraformPlanJson,
+  catalogEntry, getAllProviders, getProviderForProviderName, getProviderByTypePrefix, supportedProviderNames
+} from "./registry.js";
+import { redact, unionMask, marksAnything, expandWholeMask, redactConfig, SENSITIVE } from "./redact.js";
+import { sameVal } from "./diff.js";
+import { buildConfigIndex, refsFor, addStateEdges, listRefs, moduleOf, cfgKey, ConfigIndex } from "./references.js";
+import {
+  PlanModel, PlanResource, ActionType, TerraformPlanJson, DiagnosticItem,
   TerraformResourceChange, TerraformResourceDrift
 } from "../types/index.js";
 
@@ -32,20 +35,25 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
     source: sourceName,
     tfVersion: (plan && plan.terraform_version) || null,
     formatVersion: (plan && plan.format_version) || null,
-    resources: [], byAddr: {}, cfgByAddr: {},
+    /* keyed by plan addresses, which are untrusted: an object without a
+       prototype, so "__proto__" or "constructor" is an ordinary key */
+    resources: [], byAddr: Object.create(null), cfgByAddr: {},
     driftDetails: [], checks: [], variables: {},
-    region: null, diagnostics: [], typeCounts: {},
+    region: null, defaultProviderSettings: {}, providerBlocks: {}, providerVersionConstraints: {}, diagnostics: [], typeCounts: {},
     summary: null,
     llmReview: llmReview
   };
-  out.diag = function(level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any){
-    out.diagnostics.push({level:level, code:code, msg:msg, detail:detail || null});
+  out.diag = function(level: "err" | "warn" | "ok" | "info", code: string, msg: string, detail?: string | string[] | null | any, hint?: string){
+    var d: DiagnosticItem = {level:level, code:code, msg:msg, detail:detail || null};
+    if (hint) d.hint = hint;
+    out.diagnostics.push(d);
   };
 
   if (!checkShape(plan, out)) return out;
   readProviders(plan, out);
   var cfg = readConfiguration(plan, out);
   readResources(plan, out, cfg);
+  redactConfiguration(out, cfg);
   normaliseRefs(out);
   addStateEdges(plan, out.resources);
   reportUnsupported(out);
@@ -53,10 +61,12 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
   readExtras(plan, out);
   summarise(plan, out);
 
-  var aws = out.resources.filter(function(r: PlanResource){ return !r.foreign; }).length;
-  if (out.resources.length && !aws){
-    out.diag("err", "no-aws", "No AWS resources to draw");
+  var drawable = out.resources.filter(function(r: PlanResource){ return !r.foreign; }).length;
+  if (out.resources.length && !drawable){
+    out.diag("err", "no-provider", "No resources from a supported provider to draw (supported: " +
+      supportedProviderNames().map(function(t: string){ return "**" + t + "**"; }).join(", ") + ")");
   }
+  out.region = mainRegion(out);
 
   if (!out.diagnostics.length){
     out.diag("ok", "clean", "All resources recognised");
@@ -68,47 +78,118 @@ function parsePlan(plan: TerraformPlanJson | any, sourceName: string): PlanModel
 function checkShape(plan: any, out: PlanModel): plan is TerraformPlanJson {
   if (!plan || typeof plan !== "object"){
     out.diag!("err", "not-json",
-      "File is not a JSON object. Expected the output of <b>terraform show -json planfile</b>.");
+      "File is not a JSON object. Expected the output of **terraform show -json planfile**.");
     return false;
   }
   var fv = plan.format_version;
   if (!fv){
     out.diag!("warn", "no-format",
-      "No <b>format_version</b> \u2014 this may not be a plan file. Parsing optimistically.");
+      "No **format_version** \u2014 this may not be a plan file. Parsing optimistically.");
   } else if (String(fv).split(".")[0] !== "1"){
-    out.diag!("warn", "format-version", "Plan format <b>" + fv + "</b> is not implemented yet " +
+    out.diag!("warn", "format-version", "Plan format **" + fv + "** is not implemented yet " +
       "\u2014 only format 1.x is understood. Rendering may be incomplete.");
   }
   if (!Array.isArray(plan.resource_changes)){
     if (plan.values || plan.planned_values){
-      out.diag!("warn", "state-file", "No <b>resource_changes</b>. This looks like a state file " +
-        "rather than a plan; reading <b>planned_values</b> instead.");
+      out.diag!("warn", "state-file", "No **resource_changes**. This looks like a state file " +
+        "rather than a plan; reading **planned_values** instead.");
     } else {
-      out.diag!("err", "no-resources", "No <b>resource_changes</b> array \u2014 nothing to draw.");
+      out.diag!("err", "no-resources", "No **resource_changes** array \u2014 nothing to draw.");
       return false;
     }
   }
   return true;
 }
 
+/* Reads each provider block: the plugin that handles it (matched by
+   full_name when the plan gives it, otherwise by name) and the values of the
+   plugin's settingKeys, as strings. Each block is stored in providerBlocks
+   by its key ("aws", "aws.west", "module.db:aws"), so a resource's hooks
+   receive the settings of the block it uses. The default block (key equal to
+   the provider name) is also stored in defaultProviderSettings. */
 function readProviders(plan: TerraformPlanJson, out: PlanModel): void {
   var pcfg = (plan.configuration && plan.configuration.provider_config) || {};
+  var vars = plan.variables || {};
+  /* values of variables declared sensitive are excluded from provider settings */
+  var declared: Record<string, any> = (plan.configuration && plan.configuration.root_module &&
+                                       (plan.configuration.root_module as any).variables) || {};
+  var usable: Record<string, any> = {};
+  Object.keys(vars).forEach(function(n: string){
+    if (!(declared[n] && declared[n].sensitive === true)) usable[n] = vars[n];
+  });
+  var unsupported: string[] = [];
   Object.keys(pcfg).forEach(function(k: string){
     var name = pcfg[k].name || k;
-    if (!isProviderSupported(name)){
-      out.diag!("warn", "provider", "Provider <b>" + escapeHtml(name) + "</b> is not implemented " +
-        "yet \u2014 only <b>aws</b> resources are drawn.");
+    var p = getProviderForProviderName(pcfg[k].full_name || name);
+    if (!p){
+      var shown = pcfg[k].full_name || name;
+      if (unsupported.indexOf(shown) < 0) unsupported.push(shown);
       return;
     }
-    out.providerConstraint = pcfg[k].version_constraint || null;
-    var rex = pcfg[k].expressions && pcfg[k].expressions.region;
-    if (rex && rex.constant_value){ out.region = rex.constant_value; return; }
-    if (rex && rex.references){
-      var vn = String(rex.references[0]).replace(/^var\./, "");
-      var vars = plan.variables || {};
-      if (vars[vn] && vars[vn].value) out.region = vars[vn].value;
-    }
+    /* a block inside a module refers to that module's variables, which are
+       not in plan.variables, so only its literal values are read */
+    var inModule = k.indexOf(":") >= 0;
+    var settings: Record<string, string> = {};
+    (p.settingKeys || []).forEach(function(key: string){
+      var v = constantOrVariable(pcfg[k].expressions && pcfg[k].expressions[key], inModule ? {} : usable);
+      if (v !== null) settings[key] = v;
+    });
+    out.providerBlocks[k] = {provider: p.id, settings: settings};
+    var isDefault = k === name;
+    if (!out.defaultProviderSettings[p.id] || isDefault) out.defaultProviderSettings[p.id] = settings;
+    if (pcfg[k].version_constraint && (!out.providerVersionConstraints[p.id] || isDefault))
+      out.providerVersionConstraints[p.id] = String(pcfg[k].version_constraint);
   });
+  unsupported.forEach(function(name: string){
+    out.diag!("warn", "provider", "Provider **" + name + "** is not implemented yet \u2014 only " +
+      supportedProviderNames().map(function(t: string){ return "**" + t + "**"; }).join(", ") +
+      " resources are drawn.");
+  });
+}
+
+/* The key of the provider block a resource uses: its configuration's
+   provider_config_key if that names a stored block; otherwise the same
+   provider name one module level up, repeatedly
+   ("module.a.module.b:aws" -> "module.a:aws" -> "aws"). */
+function providerBlockOf(out: PlanModel, key: string | undefined): string | undefined {
+  var k = key;
+  while (k){
+    if (out.providerBlocks[k]) return k;
+    var colon = k.indexOf(":");
+    if (colon < 0) return undefined;
+    var mods = k.slice(0, colon), name = k.slice(colon + 1);
+    var cut = mods.lastIndexOf(".module.");
+    k = cut < 0 ? name : mods.slice(0, cut) + ":" + name;
+  }
+  return undefined;
+}
+
+/* A provider argument's value as a string, if it is a scalar literal or a
+   reference to a variable in `vars` with a scalar value; otherwise null. */
+function constantOrVariable(e: any, vars: Record<string, any>): string | null {
+  if (!e) return null;
+  if (e.constant_value !== undefined && e.constant_value !== null && typeof e.constant_value !== "object")
+    return String(e.constant_value);
+  if (e.references && e.references.length){
+    var vn = String(e.references[0]).replace(/^var\./, "");
+    if (!Object.prototype.hasOwnProperty.call(vars, vn) || !vars[vn]) return null;
+    var v = vars[vn].value;
+    if (v !== undefined && v !== null && typeof v !== "object") return String(v);
+  }
+  return null;
+}
+
+/* The region for the plan header: that of the first registered provider
+   that has resources in the plan. */
+function mainRegion(out: PlanModel): string | null {
+  var present: Record<string, boolean> = {};
+  out.resources.forEach(function(r: PlanResource){ if (r.provider) present[r.provider] = true; });
+  var ps = getAllProviders();
+  for (var i = 0; i < ps.length; i++){
+    var ctx = out.defaultProviderSettings[ps[i].id];
+    if (present[ps[i].id] && ctx && ctx.region) return ctx.region;
+  }
+  return null;
 }
 
 /* Containment and dependencies both come from configuration expressions,
@@ -117,13 +198,32 @@ function readProviders(plan: TerraformPlanJson, out: PlanModel): void {
 function readConfiguration(plan: TerraformPlanJson, out: PlanModel): ConfigIndex {
   var rootCfg = (plan.configuration && plan.configuration.root_module) || {};
   if (!rootCfg.resources && !rootCfg.module_calls){
-    out.diag!("warn", "no-config", "No <b>configuration</b> block in this plan \u2014 " +
+    out.diag!("warn", "no-config", "No **configuration** block in this plan \u2014 " +
       "relationships cannot be read, so everything is drawn at the top level. " +
-      "Re-run <b>terraform show -json</b> on the plan file (not the state).");
+      "Re-run **terraform show -json** on the plan file (not the state).");
   }
   var idx = buildConfigIndex(plan);
   out.cfgByAddr = idx.byKey;
   return idx;
+}
+
+/* Builds model.cfgByAddr, the configuration the UI reads (for HCL
+   reconstruction): a copy of each configuration resource redacted with the
+   union of its instances' masks (count and for_each instances share one
+   configuration entry). The unredacted index is used only inside the
+   parser, to resolve references. */
+function redactConfiguration(out: PlanModel, cfg: ConfigIndex): void {
+  var masks: Record<string, any> = {}, all: Record<string, boolean> = {};
+  out.resources.forEach(function(r: PlanResource){
+    var k = cfgKey(r.addr);
+    masks[k] = unionMask(masks[k], r.sensitive);
+    if (r.wholeResourceSensitive) all[k] = true;
+  });
+  var safe: Record<string, any> = {};
+  Object.keys(cfg.byKey).forEach(function(k: string){
+    safe[k] = redactConfig(cfg.byKey[k], masks[k], !!all[k]);
+  });
+  out.cfgByAddr = safe;
 }
 
 function readResources(plan: TerraformPlanJson, out: PlanModel, cfg: ConfigIndex): void {
@@ -137,16 +237,41 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, cfg: ConfigIndex
 
   changes.forEach(function(rc: any){
     if (rc.mode === "data") return;
-    var spec = REG[rc.type] || null;
-    var foreign = isForeignType(rc.type);
+    /* the provider plugin, by provider_name; by type prefix only if the
+       input has no provider_name (a state file, a hand-written plan) */
+    var plugin = rc.provider_name ? getProviderForProviderName(rc.provider_name) : getProviderByTypePrefix(rc.type);
+    var cfgEntry = cfg.byKey[cfgKey(rc.address)];
+    var blockKey = plugin ? providerBlockOf(out, cfgEntry && cfgEntry.provider_config_key) : undefined;
+    if (blockKey && out.providerBlocks[blockKey].provider !== plugin!.id) blockKey = undefined;
+    var spec = plugin ? catalogEntry(rc.type, plugin) : null;
+    var foreign = !plugin;
+
+    /* Redaction, once per resource: before and after are redacted with the
+       union of both masks. Keys whose sensitive value changed are recorded
+       first, because after redaction both sides read SENSITIVE. */
+    var ch = rc.change || {};
+    var rawAfter = ch.after || ch.before || rc.values || {};
+    var rawBefore = ch.before || null;
+    /* a mask of `true` (whole resource sensitive) is expanded to mark each key */
+    var rawMask = unionMask(ch.after_sensitive || rc.sensitive_values, ch.before_sensitive);
+    var mask = expandWholeMask(rawMask, [rawAfter, rawBefore, ch.after]) || {};
+    var changedSensitiveKeys: string[] = [];
+    if (rawBefore && ch.after){
+      Object.keys(mask).forEach(function(k: string){
+        if (marksAnything(mask[k]) && !sameVal(rawBefore[k], ch.after[k])) changedSensitiveKeys.push(k);
+      });
+    }
     var res: PlanResource = {
       addr: rc.address, address: rc.address, type: rc.type, name: rc.name,
+      provider: plugin ? plugin.id : undefined, provider_name: rc.provider_name, providerBlock: blockKey,
       mode: rc.mode || "managed",
       action: rc.change ? actionOf(rc.change.actions) : "no-op",
-      attrs: (rc.change && (rc.change.after || rc.change.before)) || rc.values || {},
-      before: (rc.change && rc.change.before) || null,
-      unknown: (rc.change && rc.change.after_unknown) || {},
-      sensitive: (rc.change && rc.change.after_sensitive) || {},
+      attrs: redact(rawAfter, mask),
+      before: rawBefore ? redact(rawBefore, mask) : null,
+      unknown: ch.after_unknown || {},
+      sensitive: mask,
+      changedSensitiveKeys: changedSensitiveKeys,
+      wholeResourceSensitive: rawMask === true || undefined,
       replacePaths: (rc.change && rc.change.replace_paths) || [],
       actionReason: rc.action_reason || null,
       spec: spec, supported: !foreign && !!spec, kind: spec ? spec.kind : "node",
@@ -187,11 +312,11 @@ function reportUnsupported(out: PlanModel): void {
     else if (!r.supported) unsup[r.type] = (unsup[r.type] || 0) + 1;
   });
   Object.keys(foreign).sort().forEach(function(t: string){
-    out.diag!("warn", "foreign", "<b>" + escapeHtml(t) + "</b> \u00d7 " + foreign[t] +
-      " \u2014 non-AWS resource, not implemented yet.");
+    out.diag!("warn", "foreign", "**" + t + "** \u00d7 " + foreign[t] +
+      " \u2014 no provider plugin draws this type yet.");
   });
   Object.keys(unsup).sort().forEach(function(t: string){
-    out.diag!("warn", "unsupported", "<b>" + escapeHtml(t) + "</b> \u00d7 " + unsup[t] +
+    out.diag!("warn", "unsupported", "**" + t + "** \u00d7 " + unsup[t] +
       " \u2014 not implemented yet; drawn as a generic tile with no placement rules.");
   });
 }
@@ -214,7 +339,12 @@ function linkDependents(out: PlanModel): void {
    to know the JSON layout (or whether the input was a plan or a state). */
 function readExtras(plan: TerraformPlanJson, out: PlanModel): void {
   var vars: Record<string, any> = (plan as any).variables || {};
-  Object.keys(vars).forEach(function(n: string){ out.variables[n] = vars[n] && vars[n].value; });
+  var declared: Record<string, any> = (plan.configuration && plan.configuration.root_module &&
+                                       (plan.configuration.root_module as any).variables) || {};
+  Object.keys(vars).forEach(function(n: string){
+    var secret = declared[n] && declared[n].sensitive === true;
+    out.variables[n] = secret ? SENSITIVE : (vars[n] && vars[n].value);
+  });
 
   var oc: Record<string, any> | undefined = plan.output_changes;
   if (oc){
@@ -223,7 +353,7 @@ function readExtras(plan: TerraformPlanJson, out: PlanModel): void {
       var ch = oc![n] || {};
       out.outputs![n] = {
         actions: ch.actions || [],
-        after: ch.after,
+        after: redact(ch.after, ch.after_sensitive),
         afterUnknown: ch.after_unknown === true,
         afterSensitive: ch.after_sensitive === true
       };
@@ -234,9 +364,10 @@ function readExtras(plan: TerraformPlanJson, out: PlanModel): void {
 
   (plan.resource_drift || []).forEach(function(d: TerraformResourceDrift){
     var ch = d.change || {};
+    var dmask = unionMask(ch.after_sensitive, ch.before_sensitive);
     out.driftDetails.push({
       address: d.address, type: d.type, name: d.name,
-      before: ch.before || {}, after: ch.after || {}
+      before: redact(ch.before || {}, dmask), after: redact(ch.after || {}, dmask)
     });
   });
 
@@ -264,15 +395,15 @@ function summarise(plan: TerraformPlanJson, out: PlanModel): void {
 
   if (Array.isArray(plan.resource_drift) && plan.resource_drift.length){
     var n = plan.resource_drift.length;
-    out.diag!("warn", "drift", "<b>" + n + "</b> resource" + (n > 1 ? "s" : "") +
+    out.diag!("warn", "drift", "**" + n + "** resource" + (n > 1 ? "s" : "") +
       " drifted",
       plan.resource_drift.map(function(d: TerraformResourceDrift){ return d.address; }));
     out.drift = plan.resource_drift.map(function(d: TerraformResourceDrift){ return d.address; });
   }
   if (plan.errored){
-    out.diag!("err", "errored", "Plan <b>errored</b>, cannot be applied");
+    out.diag!("err", "errored", "Plan **errored**, cannot be applied");
   } else if (plan.applyable === false){
-    out.diag!("warn", "not-applyable", "Plan is <b>not applyable</b>");
+    out.diag!("warn", "not-applyable", "Plan is **not applyable**");
   }
 }
 

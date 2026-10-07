@@ -172,7 +172,7 @@ function resolveRef(idx: ConfigIndex, ref: any, names: string[], inst: string[],
   }
 
   if (/^(local|each|count|path|terraform|data)$/.test(first)) return [];
-  if (first.indexOf("aws_") !== 0 || parts.length < 2) return [];
+  if (!isResourceType(first) || parts.length < 2) return [];
   return [qualify(inst, first + "." + parts[1])];
 }
 
@@ -183,8 +183,16 @@ function resolveDep(idx: ConfigIndex, dep: any, names: string[], inst: string[])
   var parts = splitAddr(dep);
   if (parts[0] === "module" && parts.length === 2) return [qualify(inst, "module." + parts[1])];
   if (parts[0] === "module") return resolveRef(idx, dep, names, inst, 0);
-  if (parts[0].indexOf("aws_") !== 0 || parts.length < 2) return [];
+  if (!isResourceType(parts[0]) || parts.length < 2) return [];
   return [qualify(inst, parts[0] + "." + parts[1])];
+}
+
+/* True if word has the form of a resource type, "<provider>_<name>", for
+   any provider. The other first segments a Terraform reference can have
+   (var, local, module, data, each, count, path, terraform, self) contain no
+   underscore, so they do not match. */
+function isResourceType(word: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9-]*_[A-Za-z0-9_-]+$/.test(word);
 }
 
 function flat(lists: string[][]): string[] {

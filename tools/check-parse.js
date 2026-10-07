@@ -14,21 +14,13 @@
 //   node tools/check-parse.js | diff tools/baseline/check-parse.txt -
 //   node tools/check-parse.js > tools/baseline/check-parse.txt   (to re-record)
 
-const fs = require("fs");
-// a harness that throws must not be mistaken for valid output
-const defaultPath = fs.existsSync(__dirname + "/../dist/index.html")
-  ? __dirname + "/../dist/index.html"
-  : __dirname + "/../index.html";
-const h = fs.readFileSync(process.argv[2] || defaultPath, "utf8");
-const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
-const slice = (a, b) => js.slice(js.indexOf(a), js.indexOf(b));
-global.escapeHtml = s => String(s).replace(/[&<>"']/g,
-  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-eval(slice("var AWS_REG = {", "var ACTION_COLOR"));
-eval(slice("function actionOf", "/* ============================================================\n     3. LAYOUT"));
+const { load } = require("./lib/app.js");
+const app = load(process.argv[2]);
+const { parsePlan } = app.exports;
 
 const plans = {
-  sample: JSON.parse(h.match(/id="embedded-plan">([\s\S]*?)<\/script>/)[1]),
+  sample: app.samplePlan(),
+  mixed: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/mixed-aws-gcp/plan.json", "utf8")),
   statefile: {format_version:"1.0", values:{root_module:{resources:[]}}},
   garbage: {hello:"world"},
   foreignprov: {format_version:"1.2", resource_changes:[

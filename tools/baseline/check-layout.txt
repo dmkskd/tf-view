@@ -60,3 +60,48 @@
       . aws_iam_instance_profile.ssm  @28,712 178x66
       . aws_iam_role.ssm  @216,712 178x66
   anc={"aws_vpc.main":[],"aws_subnet.public":["aws_vpc.main"],"aws_security_group.instance":["aws_vpc.main","aws_subnet.public"],"aws_instance.test":["aws_vpc.main","aws_subnet.public","aws_security_group.instance"],"aws_security_group.ssm_endpoints":["aws_vpc.main","aws_subnet.public"],"aws_vpc_endpoint.ec2messages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssm":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_vpc_endpoint.ssmmessages":["aws_vpc.main","aws_subnet.public","aws_security_group.ssm_endpoints"],"aws_internet_gateway.igw":["aws_vpc.main"],"aws_network_acl.main":["aws_vpc.main"],"aws_route_table.public":["aws_vpc.main"],"aws_iam_instance_profile.ssm":[],"aws_iam_role.ssm":[]}
+### mixed mode=all assoc=false -> 669x342
+  [clouds]    @0,0 669x342
+    [cloud] AWS Cloud   @14,26 338x266
+      [region] Region eu-west-1  @28,52 310x226
+        [vpc] VPC main 10.0.0.0/16  @42,78 282x186
+          [az] Availability Zone eu-west-1a  @56,104 254x146
+            [subnet private] Subnet a 10.0.1.0/24  @70,130 206x106
+              . aws_instance.web  @84,156 178x66
+    [cloud] Google Cloud   @362,26 293x302
+      [region] Region europe-west1  @376,52 265x262
+        [vpc] VPC net   @390,78 237x146
+          [subnet] Subnet sub 10.1.0.0/24  @404,104 209x106
+            . google_compute_instance.vm  @418,130 178x66
+        . google_storage_bucket.b  @390,234 178x66
+  anc={"aws_vpc.main":[],"aws_subnet.a":["aws_vpc.main"],"aws_instance.web":["aws_vpc.main","aws_subnet.a"],"google_compute_network.net":[],"google_compute_subnetwork.sub":["google_compute_network.net"],"google_compute_instance.vm":["google_compute_network.net","google_compute_subnetwork.sub"],"google_storage_bucket.b":[]}
+### mixed mode=all assoc=true -> 669x342
+  [clouds]    @0,0 669x342
+    [cloud] AWS Cloud   @14,26 338x266
+      [region] Region eu-west-1  @28,52 310x226
+        [vpc] VPC main 10.0.0.0/16  @42,78 282x186
+          [az] Availability Zone eu-west-1a  @56,104 254x146
+            [subnet private] Subnet a 10.0.1.0/24  @70,130 206x106
+              . aws_instance.web  @84,156 178x66
+    [cloud] Google Cloud   @362,26 293x302
+      [region] Region europe-west1  @376,52 265x262
+        [vpc] VPC net   @390,78 237x146
+          [subnet] Subnet sub 10.1.0.0/24  @404,104 209x106
+            . google_compute_instance.vm  @418,130 178x66
+        . google_storage_bucket.b  @390,234 178x66
+  anc={"aws_vpc.main":[],"aws_subnet.a":["aws_vpc.main"],"aws_instance.web":["aws_vpc.main","aws_subnet.a"],"google_compute_network.net":[],"google_compute_subnetwork.sub":["google_compute_network.net"],"google_compute_instance.vm":["google_compute_network.net","google_compute_subnetwork.sub"],"google_storage_bucket.b":[]}
+### mixed mode=changes assoc=false -> 669x342
+  [clouds]    @0,0 669x342
+    [cloud] AWS Cloud   @14,26 338x266
+      [region] Region eu-west-1  @28,52 310x226
+        [vpc] VPC main 10.0.0.0/16  @42,78 282x186
+          [az] Availability Zone eu-west-1a  @56,104 254x146
+            [subnet private] Subnet a 10.0.1.0/24  @70,130 206x106
+              . aws_instance.web  @84,156 178x66
+    [cloud] Google Cloud   @362,26 293x302
+      [region] Region europe-west1  @376,52 265x262
+        [vpc] VPC net   @390,78 237x146
+          [subnet] Subnet sub 10.1.0.0/24  @404,104 209x106
+            . google_compute_instance.vm  @418,130 178x66
+        . google_storage_bucket.b  @390,234 178x66
+  anc={"aws_vpc.main":[],"aws_subnet.a":["aws_vpc.main"],"aws_instance.web":["aws_vpc.main","aws_subnet.a"],"google_compute_network.net":[],"google_compute_subnetwork.sub":["google_compute_network.net"],"google_compute_instance.vm":["google_compute_network.net","google_compute_subnetwork.sub"],"google_storage_bucket.b":[]}

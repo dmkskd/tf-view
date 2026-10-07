@@ -6,7 +6,7 @@ import { PlanModel, PlanResource } from "../types/index.js";
    the point of a snapshot is to see how things were resolved (module, action,
    links and where each link came from), not to copy the plan again. */
 function modelSnapshot(model: PlanModel, withAttrs?: boolean): any {
-  var plain = function(s: string): string { return String(s || "").replace(/<[^>]+>/g, ""); };
+  var plain = function(s: string): string { return String(s || "").replace(/\*\*/g, ""); };
   return {
     source: model.source,
     terraform: model.tfVersion,

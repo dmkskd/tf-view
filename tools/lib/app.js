@@ -1,52 +1,70 @@
-// lib/app.js — loads the functions out of index.html so Node can call them.
+// lib/app.js — loads the app's core modules into Node for the test scripts.
 //
 // WHAT IT DOES
-//   Reads index.html as text, cuts the inline <script> on landmark strings and
-//   evals the DOM-free sections into the global scope. The shims below stand in
-//   for the two DOM reads those sections perform (escapeHtml is defined next to
-//   the render code, and the collection-kinds table is read from a <script> tag).
+//   Bundles the modules listed in CORE (and the registered providers) from
+//   src/ts with esbuild, the bundler the build uses, and loads the result as
+//   one CommonJS module; each export is available by name through fn().
+//   The sample plans and the collection-kinds table are read from the built
+//   page, so the tests use the data included in the build.
 //
 // USED BY
-//   tools/test.js, and available to the check-*.js harnesses.
-//
-// LIMITS
-//   Slicing on landmark strings means renaming a function or moving a section
-//   breaks the load. It throws rather than returning a partial app.
+//   tools/test.js, check-pure.js, check-parse.js, check-layout.js,
+//   dump-model.js, audit-links.js.
 
 const fs = require("fs");
+const path = require("path");
+const Module = require("module");
+const esbuild = require("esbuild");
+
+const ROOT = path.join(__dirname, "..", "..");
+const SRC = path.join(ROOT, "src", "ts");
+
+/* The modules a harness may call into. UI modules are left out: they touch
+   the DOM as soon as they load. */
+const CORE = ["parser", "references", "layout", "tree", "diff", "schema", "snapshot",
+              "hcl", "shell", "util", "registry", "rules", "links", "placement", "redact", "readonly", "hooks", "icons"];
+
+let cached = null;
+function bundle() {
+  if (cached) return cached;
+  const entry = ['import "./providers/index.ts";']
+    .concat(CORE.map(m => `export * from "./core/${m}.ts";`))
+    .concat(['export { referencedValues, singleReferencedValue } from "./sdk/refs.ts";'])
+    .join("\n");
+  const out = esbuild.buildSync({
+    stdin: { contents: entry, resolveDir: SRC, sourcefile: "harness-entry.ts", loader: "ts" },
+    bundle: true, format: "cjs", platform: "node", target: "node18",
+    write: false, logLevel: "error"
+  });
+  const file = path.join(SRC, "harness-bundle.js");
+  const m = new Module(file, module);
+  m.filename = file;
+  m.paths = Module._nodeModulePaths(SRC);
+  m._compile(out.outputFiles[0].text, file);
+  cached = m.exports;
+  return cached;
+}
 
 function load(htmlPath) {
-  const defaultPath = fs.existsSync(__dirname + "/../../dist/index.html")
-    ? __dirname + "/../../dist/index.html"
-    : __dirname + "/../../index.html";
+  const defaultPath = path.join(ROOT, "dist", "index.html");
   const h = fs.readFileSync(htmlPath || defaultPath, "utf8");
-  const js = h.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/)[1];
-  const slice = (from, to) => {
-    const a = js.indexOf(from), b = js.indexOf(to);
-    if (a < 0 || b < 0 || b <= a) throw new Error("slice failed: " + from);
-    return js.slice(a, b);
+  const block = id => {
+    const m = h.match(new RegExp(`id="${id}">([\\s\\S]*?)</script>`));
+    if (!m) throw new Error("no data block: " + id);
+    return m[1];
   };
 
-  global.escapeHtml = s => String(s).replace(/[&<>"']/g,
-    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  global.document = {
-    getElementById: () => ({
-      textContent: h.match(/id="collection-kinds">([\s\S]*?)<\/script>/)[1]
-    })
-  };
+  /* core/schema.ts reads the collection-kinds table from the page */
+  global.document = { getElementById: id => (id === "collection-kinds" ? { textContent: block(id) } : null) };
 
-  eval.call(null, slice("var AWS_REG = {", "var ACTION_COLOR"));
-  eval.call(null, slice("var ACTION_COLOR", "function actionOf"));
-  eval.call(null, slice("function actionOf", "/* ============================================================\n     3. LAYOUT"));
-  eval.call(null, slice("/* ============================================================\n     3. LAYOUT", "/* ============================================================\n     4. RENDER"));
-  eval.call(null, slice("var SCHEMA = null;", "/* ------------------------------------------------------------------\n     Rule preview."));
-  eval.call(null, slice("var PORT_NAME", "/* --- collapsible sections"));
-
+  const exp = bundle();
   return {
     html: h,
-    samplePlan: () => JSON.parse(h.match(/id="embedded-plan">([\s\S]*?)<\/script>/)[1]),
+    block,
+    samplePlan: () => JSON.parse(block("embedded-plan")),
+    exports: exp,
     fn: name => {
-      const f = global[name] || eval(name);
+      const f = exp[name];
       if (typeof f !== "function") throw new Error("not loaded: " + name);
       return f;
     }

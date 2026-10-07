@@ -16,7 +16,7 @@ build: typecheck
     node scripts/build-single-html.js
 
 # Run the entire test suite and regression baselines
-test: typecheck build test-unit test-boot test-render test-pure test-parse test-layout
+test: typecheck build test-unit test-boot test-render test-links test-csp test-providers test-pure test-parse test-layout
     @echo "✅ All tests and regression baselines passed!"
 
 # Run unit assertions (optional suite filter, e.g. `just test-unit placement`)
@@ -30,6 +30,18 @@ test-boot:
 # Run headless DOM interactive render check
 test-render:
     node tools/check-render.js
+
+# Check the console-link guard against hostile plans
+test-links:
+    node tools/check-links.js
+
+# Check the built page's Content-Security-Policy is strict and matches its script
+test-csp:
+    node tools/check-csp.js
+
+# Check provider folders import only the SDK and stay away from the page, network and eval
+test-providers:
+    node tools/check-providers.js
 
 # Verify pure functions against baseline
 test-pure:

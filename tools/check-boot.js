@@ -1,8 +1,8 @@
 // check-boot.js — does the app script actually run?
 //
 // WHAT IT CHECKS
-//   The other harnesses slice individual functions out of index.html and call
-//   them. None of them run the whole script, so an exception thrown while the
+//   The other harnesses load the core modules on their own (tools/lib/app.js)
+//   and call them. None of them run the whole page script, so an exception thrown while the
 //   app is setting itself up — a lookup for an element that no longer exists,
 //   a reference to a renamed variable — goes unnoticed: the page renders its
 //   static markup and every control silently does nothing.

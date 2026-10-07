@@ -81,7 +81,7 @@
   .attr .v.unknown{color:var(--faint); font-style:italic;}
   .reflist{display:flex; flex-direction:column; gap:2px; padding:0 18px 14px;}
   .reflist a{
-    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--aws-net);
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--accent);
     text-decoration:none; cursor:pointer; padding:3px 0;
   }
   .reflist a:hover{text-decoration:underline;}
@@ -132,7 +132,7 @@
   }
   .cli-copy{
     font-family:"Archivo",sans-serif; font-size:10px; font-weight:600; letter-spacing:.06em;
-    text-transform:uppercase; color:var(--aws-net); background:none; border:0; padding:2px 4px;
+    text-transform:uppercase; color:var(--accent); background:none; border:0; padding:2px 4px;
     cursor:pointer; border-radius:4px;
   }
   .cli-copy:hover{background:var(--surface-3);}
@@ -144,19 +144,19 @@
     padding-left:26px; text-indent:-15px;            /* hang continuation lines */
     -webkit-user-select:all; user-select:all;
   }
-  .cli-cmd .fl{color:var(--aws-net);}
+  .cli-cmd .fl{color:var(--accent);}
   .hcl{
     margin:0; padding:10px 11px; font-family:"IBM Plex Mono",monospace; font-size:11.5px;
     line-height:1.65; color:var(--ink); white-space:pre; overflow-x:auto;
     -webkit-user-select:all; user-select:all;
   }
-  .hcl .k{color:var(--aws-net); font-weight:600;}  /* resource, block names */
-  .hcl .t{color:var(--aws-compute);}               /* resource type         */
+  .hcl .k{color:var(--accent); font-weight:600;}  /* resource, block names */
+  .hcl .t{color:var(--cat-compute);}               /* resource type         */
   .hcl .a{color:var(--muted);}                     /* attribute name        */
   .hcl .s{color:var(--create);}                    /* string                */
   .hcl .n{color:var(--update);}                    /* number                */
   .hcl .b{color:var(--replace);}                   /* true / false / null   */
-  .hcl .r{color:var(--aws-db);}                    /* reference             */
+  .hcl .r{color:var(--cat-db);}                    /* reference             */
   .hcl .c{color:var(--faint); font-style:italic;}  /* trailing note         */
   .cli-note{padding:0 18px 14px; font-size:12px; color:var(--faint); line-height:1.5;}
 
@@ -169,7 +169,7 @@
   }
   .rules td{padding:5px 6px; border-bottom:1px solid var(--line-soft); color:var(--body); vertical-align:top;}
   .rules tr:last-child td{border-bottom:0;}
-  .rules td.svc{color:var(--aws-net); font-size:10px; font-weight:600;}
+  .rules td.svc{color:var(--accent); font-size:10px; font-weight:600;}
   .rules td.deny{color:var(--deny);}
   .rules td.allow{color:var(--create);}
   .rules tr.implicit td{color:var(--deny); background:var(--deny-soft);}
@@ -220,7 +220,7 @@
   }
   .rdiff-row .m{font-weight:700;}
   .rdiff-row .p{font-weight:600;}
-  .rdiff-row .s{font-size:10px; font-weight:600; color:var(--aws-net);}
+  .rdiff-row .s{font-size:10px; font-weight:600; color:var(--accent);}
   .rdiff-row .pr{font-size:10px; color:var(--muted);}
   .rdiff-row .pe{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .rdiff-row .d{
@@ -254,7 +254,7 @@
     background: var(--warn-soft);
   }
   .llm-review-card[data-risk="MEDIUM"], .llm-review-card[data-risk="medium"] {
-    border-color: color-mix(in srgb, var(--aws-compute) 30%, var(--line));
+    border-color: color-mix(in srgb, var(--cat-compute) 30%, var(--line));
     background: var(--surface-2);
   }
   .llm-review-card[data-risk="LOW"], .llm-review-card[data-risk="low"] {
@@ -276,7 +276,7 @@
   }
   .llm-risk-badge[data-risk="CRITICAL"], .llm-risk-badge[data-risk="critical"] { background: var(--err); }
   .llm-risk-badge[data-risk="HIGH"], .llm-risk-badge[data-risk="high"] { background: var(--warn); }
-  .llm-risk-badge[data-risk="MEDIUM"], .llm-risk-badge[data-risk="medium"] { background: var(--aws-compute); }
+  .llm-risk-badge[data-risk="MEDIUM"], .llm-risk-badge[data-risk="medium"] { background: var(--cat-compute); }
   .llm-risk-badge[data-risk="LOW"], .llm-risk-badge[data-risk="low"] { background: var(--create); }
 
   .llm-meta-tag {
@@ -330,7 +330,7 @@
 
   .llm-goto-link {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
-    color: var(--aws-net); text-decoration: underline; text-underline-offset: 2px;
+    color: var(--accent); text-decoration: underline; text-underline-offset: 2px;
     cursor: pointer; padding: 0 2px;
   }
   .llm-goto-link:hover {
@@ -370,14 +370,14 @@
   }
   .llm-triage-row[data-risk="CRITICAL"] { border-color: color-mix(in srgb, var(--err) 35%, var(--line)); }
   .llm-triage-row[data-risk="HIGH"] { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
-  .llm-triage-row[data-risk="MEDIUM"] { border-color: color-mix(in srgb, var(--aws-compute) 35%, var(--line)); }
+  .llm-triage-row[data-risk="MEDIUM"] { border-color: color-mix(in srgb, var(--cat-compute) 35%, var(--line)); }
   .llm-triage-row[data-risk="LOW"] { border-color: color-mix(in srgb, var(--create) 35%, var(--line)); }
   .llm-triage-top {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
   .llm-triage-addr {
     font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
-    color: var(--aws-net); text-decoration: none; cursor: pointer;
+    color: var(--accent); text-decoration: none; cursor: pointer;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;
   }
   .llm-triage-addr:hover { text-decoration: underline; color: var(--ink); }
@@ -398,7 +398,7 @@
   }
   .llm-insight-card[data-risk="CRITICAL"], .llm-insight-card[data-risk="critical"] { border-color: color-mix(in srgb, var(--err) 30%, var(--line)); background: var(--err-soft); }
   .llm-insight-card[data-risk="HIGH"], .llm-insight-card[data-risk="high"] { border-color: color-mix(in srgb, var(--warn) 30%, var(--line)); background: var(--warn-soft); }
-  .llm-insight-card[data-risk="MEDIUM"], .llm-insight-card[data-risk="medium"] { border-color: color-mix(in srgb, var(--aws-compute) 30%, var(--line)); }
+  .llm-insight-card[data-risk="MEDIUM"], .llm-insight-card[data-risk="medium"] { border-color: color-mix(in srgb, var(--cat-compute) 30%, var(--line)); }
   .llm-insight-card[data-risk="LOW"], .llm-insight-card[data-risk="low"] { border-color: color-mix(in srgb, var(--create) 30%, var(--line)); background: var(--ok-soft); }
 
   .llm-insight-head {

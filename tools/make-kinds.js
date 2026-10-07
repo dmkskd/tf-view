@@ -11,32 +11,62 @@
 //
 // HOW TO USE IT
 //   terraform providers schema -json > schema.json
-//   node tools/make-kinds.js schema.json --version 5.100.0 -o kinds.json
+//   node tools/make-kinds.js schema.json --lock .terraform.lock.hcl -o src/data/collection-kinds.json
 //
-//   Then paste the result into the <script id="collection-kinds"> block in
-//   index.html. Pass --version explicitly: the schema file does not record
-//   which provider version produced it (that lives in .terraform.lock.hcl),
-//   and the app uses the recorded version to warn when a plan targets a
-//   different major version.
+//   The schema covers every provider the configuration uses (AWS and Google
+//   together, say); each gets its own entry in meta.providers. Each needs its
+//   version, which the schema file does not record: --lock reads it from
+//   .terraform.lock.hcl, or give it as --version aws=5.100.0 (repeatable). A
+//   bare --version X.Y.Z is accepted only when the schema holds one provider.
+//   The app uses the recorded versions to warn when a plan targets a
+//   different major version. `npm run build` bundles the output file.
 
 const fs = require("fs");
 
 const args = process.argv.slice(2);
-const oi = args.indexOf("-o");
-const vi = args.indexOf("--version");
-if (oi < 0) {
-  console.error("usage: node tools/make-kinds.js <schema.json> [--version X.Y.Z] -o <out.json>");
+function usage(msg) {
+  if (msg) console.error(msg);
+  console.error("usage: node tools/make-kinds.js <schema.json> [--lock .terraform.lock.hcl] [--version name=X.Y.Z ...] -o <out.json>");
   process.exit(2);
 }
-const src = args.find((a, i) => i !== oi && i !== oi + 1 && i !== vi && i !== vi + 1);
-const out = args[oi + 1];
-const version = vi >= 0 ? args[vi + 1] : null;
+let src = null, out = null, lock = null;
+const versions = {};          /* short name -> version, from --version name=X */
+let bareVersion = null;       /* --version X, for a single-provider schema */
+for (let i = 0; i < args.length; i++) {
+  const a = args[i];
+  if (a === "-o") out = args[++i];
+  else if (a === "--lock") lock = args[++i];
+  else if (a === "--version") {
+    const v = args[++i] || "";
+    const eq = v.indexOf("=");
+    if (eq > 0) versions[v.slice(0, eq)] = v.slice(eq + 1);
+    else bareVersion = v;
+  }
+  else if (!src) src = a;
+  else usage("unexpected argument: " + a);
+}
+if (!src || !out) usage();
+
+/* provider "registry.terraform.io/hashicorp/aws" { version = "5.100.0" ... } */
+const locked = {};
+if (lock) {
+  const text = fs.readFileSync(lock, "utf8");
+  for (const m of text.matchAll(/provider\s+"([^"]+)"\s*\{[^}]*?\bversion\s*=\s*"([^"]+)"/g)) locked[m[1]] = m[2];
+}
 
 const schema = JSON.parse(fs.readFileSync(src, "utf8"));
 const result = { meta: { format: schema.format_version || null, providers: {} }, kinds: {} };
 
+const addrs = Object.keys(schema.provider_schemas || {});
+if (bareVersion && addrs.length > 1) {
+  usage("a bare --version is ambiguous: the schema has " + addrs.length + " providers (" + addrs.join(", ") +
+        "). Use --lock or --version name=X.Y.Z for each.");
+}
+const missing = [];
 for (const [addr, ps] of Object.entries(schema.provider_schemas || {})) {
   const short = addr.split("/").pop();
+  const version = versions[short] || locked[addr] || bareVersion || null;
+  if (!version) missing.push(addr);
   let types = 0;
   for (const [ty, spec] of Object.entries(ps.resource_schemas || {})) {
     const block = spec.block || {};
@@ -55,6 +85,12 @@ for (const [addr, ps] of Object.entries(schema.provider_schemas || {})) {
   }
   result.meta.providers[short] = { address: addr, version: version, types };
 }
+
+if (missing.length) {
+  usage("no version for " + missing.join(", ") + ": pass --lock .terraform.lock.hcl or --version name=X.Y.Z");
+}
+const unused = Object.keys(versions).filter(n => !addrs.some(a => a.split("/").pop() === n));
+if (unused.length) usage("--version given for a provider the schema does not have: " + unused.join(", "));
 
 fs.writeFileSync(out, JSON.stringify(result));
 const n = Object.keys(result.kinds).length;

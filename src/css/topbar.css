@@ -14,14 +14,14 @@
     cursor:pointer; transition:all .15s ease;
   }
   .src:hover{
-    color:var(--ink); border-color:var(--aws-net); background:var(--surface);
+    color:var(--ink); border-color:var(--accent); background:var(--surface);
     box-shadow:0 1px 4px rgba(19,26,34,.08);
   }
   .src .src-tf{flex:none; width:13px; height:13px; color:#844FBA;}
   .src .src-pfx{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; color:var(--muted);}
   .src .src-file{font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .src .src-arr{font-size:13px; font-weight:700; color:var(--faint); line-height:1; flex:none; margin-left:1px;}
-  .src:hover .src-arr{color:var(--aws-net);}
+  .src:hover .src-arr{color:var(--accent);}
   .sections{padding:0 18px 14px; display:flex; flex-direction:column; gap:2px;}
   .sec-row > summary{
     display:flex; align-items:center; gap:9px; cursor:pointer; list-style:none;
@@ -70,20 +70,20 @@
   .seg.icons svg{width:16px; height:16px;}
   .seg.icons > *:hover{color:var(--ink); background:var(--surface-3);}
   .btn:hover{filter:brightness(1.06);}
-  .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
+  .btn-primary{background:var(--accent); border-color:transparent; color:#fff;}
   .viewer-only #loadBtn, .viewer-only #sampleBtn, .viewer-only #sampleMenu{display:none;}
   .btn-load{
     gap:7px;
-    background:color-mix(in srgb, var(--aws-net) 9%, var(--surface-2));
-    border-color:color-mix(in srgb, var(--aws-net) 32%, var(--line));
+    background:color-mix(in srgb, var(--accent) 9%, var(--surface-2));
+    border-color:color-mix(in srgb, var(--accent) 32%, var(--line));
     color:var(--ink);
     transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
   }
-  .btn-load .btn-ic{flex:none; color:var(--aws-net); transition:transform .15s ease;}
+  .btn-load .btn-ic{flex:none; color:var(--accent); transition:transform .15s ease;}
   .btn-load:hover{
-    background:color-mix(in srgb, var(--aws-net) 16%, var(--surface));
-    border-color:var(--aws-net);
-    box-shadow:0 1px 4px color-mix(in srgb, var(--aws-net) 22%, transparent);
+    background:color-mix(in srgb, var(--accent) 16%, var(--surface));
+    border-color:var(--accent);
+    box-shadow:0 1px 4px color-mix(in srgb, var(--accent) 22%, transparent);
     filter:none;
   }
   .btn-load:hover .btn-ic{transform:translateY(-1px);}
@@ -94,7 +94,7 @@
     background:var(--surface-2); color:var(--muted);
   }
   .seg button + button{border-left:1px solid var(--line);}
-  .seg button.on{background:var(--aws-net); color:#fff;}
+  .seg button.on{background:var(--accent); color:#fff;}
   .seg button:not(.on):hover{color:var(--ink);}
   .seg button[disabled]{opacity:.45; cursor:not-allowed;}
 
@@ -110,11 +110,11 @@
     border-radius:50%; background:var(--surface); transition:transform .16s ease;
     box-shadow:0 1px 2px rgba(19,26,34,.3);
   }
-  .btn.toggle[aria-pressed="true"]{color:var(--ink); border-color:var(--aws-net);}
-  .btn.toggle[aria-pressed="true"] .sw{background:var(--aws-net);}
+  .btn.toggle[aria-pressed="true"]{color:var(--ink); border-color:var(--accent);}
+  .btn.toggle[aria-pressed="true"] .sw{background:var(--accent);}
   .btn.toggle[aria-pressed="true"] .sw::after{transform:translateX(11px);}
   .btn.toggle[disabled]{opacity:.45; cursor:not-allowed;}
-  :focus-visible{outline:2px solid var(--aws-net); outline-offset:2px;}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
   /* Safari ignores .click() on a file input that is not rendered, so hide it
      without taking it out of the layout tree. */
   input[type=file]{

@@ -1,0 +1,36 @@
+name: Test
+
+# Runs on every pull request, including pull requests from forks, and on
+# pushes to main. The `pull_request` event (unlike pull_request_target) gives
+# the run a read-only GITHUB_TOKEN and no repository secrets, so code in a
+# pull request cannot push to the repository or read its secrets.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Types, build, unit tests, CSP and provider checks, baselines
+        run: npm test
+
+      - name: CLI tests
+        run: cd cli && cargo test

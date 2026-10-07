@@ -1,12 +1,10 @@
 // core/layout.ts — Nested box containment tree & measure/layout engine
-import {
-  placeAllContainers, containerOfResource, isContainerBoundary,
-  getCloudRootLabel
-} from "../providers/registry.js";
+import { getAllProviders, getProviderForResource } from "./registry.js";
+import { startPlacement } from "./placement.js";
 import { mkGroup } from "./tree.js";
 import {
   PlanModel, PlanResource, RenderOptions, LayoutGroup,
-  LayoutLeaf, LayoutNode, LayoutRow, LayoutContext
+  LayoutLeaf, LayoutNode, LayoutRow, LayoutContext, ProviderPlugin
 } from "../types/index.js";
 
 var TW = 178, GAP = 10, PAD = 14, HEAD = 26;
@@ -90,51 +88,111 @@ function place(g: LayoutNode, x: number, y: number): void {
 /* ------------------------------------------------------------------
    Containment tree.
 
-   Placement runs in passes, outermost first, because each pass needs
-   the groups the previous one created. To support a new container
-   type, add a pass here and mark the type kind:"group" in REG.
+   Each provider with resources in the plan gets its own cloud box, with its
+   own region, global and unplaced boxes, laid out by that provider's
+   placement only. A resource with no provider plugin is added to the first
+   provider's cloud. With one provider, its cloud box is the root of the
+   tree; with several, the cloud boxes are children of a "clouds" box, which
+   the CSS does not draw.
    ------------------------------------------------------------------ */
 
 function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
-  var cloud = mkGroup("cloud", getCloudRootLabel(model), "", 1500, true);
-  var region = mkGroup("region", "Region", model.region || "region not resolved", 1420);
-  var global = mkGroup("loose", "Global", "account-level", 760);
-  var unplaced = mkGroup("loose", "Unplaced", "no vpc or subnet reference", 760);
+  var vis = visibleResources(model, opts);
+  var byProvider: Record<string, PlanResource[]> = {};
+  var unowned: PlanResource[] = [];
+  vis.forEach(function(r: PlanResource){
+    var p = getProviderForResource(r);
+    if (p) (byProvider[p.id] || (byProvider[p.id] = [])).push(r);
+    else unowned.push(r);
+  });
+  var present = getAllProviders().filter(function(p: ProviderPlugin){ return byProvider[p.id]; });
+  if (!present.length) present = getAllProviders().slice(0, 1);
+
+  var clouds = present.map(function(p: ProviderPlugin, i: number){
+    var cloudResources = (byProvider[p.id] || []).concat(i === 0 ? unowned : []);
+    return buildCloud(model, opts, p, cloudResources);
+  });
+
+  var root: LayoutGroup;
+  if (clouds.length === 1) root = clouds[0];
+  else {
+    root = mkGroup("clouds", "", "", 4000);
+    root.children = clouds;
+  }
+  measure(root);
+  place(root, 0, 0);
+  model.anc = ancestorChains(root);
+  return root;
+}
+
+/* Lays out one provider's cloud. If the provider's placement fails at any
+   point (an exception, or an invalid addContainer call or containerOf
+   answer), the cloud is discarded and laid out again without the provider's
+   placement; every resource is then a tile, placed by core's rules (catalog
+   scope, neighbours, Unplaced). */
+function buildCloud(model: PlanModel, opts: RenderOptions, p: ProviderPlugin | undefined, vis: PlanResource[]): LayoutGroup {
+  var first = layoutCloud(model, opts, p, vis, true);
+  if (!first.error) return first.cloud;
+  if (p) reportPlacementFailure(model, p, first.error);
+  return layoutCloud(model, opts, p, vis, false).cloud;
+}
+
+function layoutCloud(model: PlanModel, opts: RenderOptions, p: ProviderPlugin | undefined, vis: PlanResource[],
+                     withPlacement: boolean): { cloud: LayoutGroup; error: string | null } {
+  var ctxRegion = p && model.defaultProviderSettings && model.defaultProviderSettings[p.id] && model.defaultProviderSettings[p.id].region;
+  var cloud = mkGroup("cloud", (p && p.cloudLabel) || "Cloud", "", 1500, true);
+  var region = mkGroup("region", "Region", ctxRegion || "region not resolved", 1420);
+  var global = mkGroup("loose", "Global", (p && p.globalNote) || "not regional", 760);
+  var unplaced = mkGroup("loose", "Unplaced", (p && p.unplacedNote) || "no container reference", 760);
 
   var ctx: LayoutContext = {
-    vis: visibleResources(model, opts),
+    vis: vis,
     opts: opts,
-    vpcGroups: {}, vpcWideGroups: {}, subnetVpcGroups: {}, azGroups: {}, subnetGroups: {}, sgGroups: {}, ownerOf: {},
-    referrers: {}, byAddr: {},
+    /* keyed by plan addresses: no prototype, see parsePlan */
+    referrers: Object.create(null), byAddr: Object.create(null),
     cloud: cloud,
     region: region,
     global: global,
-    unplaced: unplaced
+    unplaced: unplaced,
+    provider: p || null,
+    session: null,
+    boxesByRef: new Map(),
+    boxedAddresses: new Set()
   };
 
   /* reverse index of expressions[*].references, for resources that name no
      container themselves — aws_eip is referenced by aws_nat_gateway, never
      the other way round */
   ctx.vis.forEach(function(r: PlanResource){
-    ctx.byAddr![r.addr] = r;
+    ctx.byAddr[r.addr] = r;
     (r.refs || []).forEach(function(ref: string){
-      (ctx.referrers![ref] || (ctx.referrers![ref] = [])).push(r);
+      (ctx.referrers[ref] || (ctx.referrers[ref] = [])).push(r);
     });
   });
 
   cloud.children.push(region);
 
-  placeAllContainers(ctx);
+  if (withPlacement && p && p.placement){
+    var own = ctx.vis.filter(function(r: PlanResource){ return getProviderForResource(r) === p; });
+    var err = startPlacement(ctx, p, own, model);
+    if (err) return { cloud: cloud, error: err };
+  }
   placeRemaining(ctx);
+  var late = ctx.error ? ctx.error() : null;
+  if (late) return { cloud: cloud, error: late };
 
   if (global.children.length) cloud.children.push(global);
   if (unplaced.children.length) cloud.children.push(unplaced);
 
   pruneEmpty(cloud, cloud, opts);
-  measure(cloud);
-  place(cloud, 0, 0);
-  model.anc = ancestorChains(cloud);
-  return cloud;
+  return { cloud: cloud, error: null };
+}
+
+/* Adds a placement-<id> error diagnostic, at most once per plan. */
+function reportPlacementFailure(model: PlanModel, p: ProviderPlugin, msg: string): void {
+  var code = "placement-" + p.id;
+  if ((model.diagnostics || []).some(function(d){ return d.code === code; })) return;
+  if (model.diag) model.diag("err", code, "The **" + p.id + "** provider's placement failed, so its resources are drawn as tiles, without its containers: " + msg);
 }
 
 function visibleResources(model: PlanModel, opts: RenderOptions): PlanResource[] {
@@ -151,17 +209,22 @@ function visibleResources(model: PlanModel, opts: RenderOptions): PlanResource[]
   });
 }
 
+/* The box for a resource's tile: by catalog scope ("global", "region"); else
+   the box the provider's placement returns (for its own resources only);
+   else, for scope "network", the region box; else null. */
 function containerOf(ctx: LayoutContext, r: PlanResource): LayoutGroup | null {
   var scope = r.spec && r.spec.scope;
-  if (scope === "global") return ctx.global || null;
+  if (scope === "global") return ctx.global;
   if (scope === "region") return ctx.region;
 
-  var c = containerOfResource(ctx, r);
-  if (c) return c;
+  var ref = ctx.session ? ctx.session.containerOf(r.addr) : null;
+  if (ref) return ctx.boxesByRef.get(ref) || null;
 
-  if (scope === "vpc") return ctx.region;
+  if (scope === "network") return ctx.region;
   return null;
 }
+
+
 
 /* One hop along a reference edge, either direction: a resource naming no
    container of its own takes the container of a neighbour — e.g. an EIP is
@@ -171,7 +234,7 @@ function containerOfNeighbour(ctx: LayoutContext, r: PlanResource): LayoutGroup 
   var hop = (r.refs || []).concat(
     ((ctx.referrers && ctx.referrers[r.addr]) || []).map(function(n: PlanResource){ return n.addr; }));
   for (var i = 0; i < hop.length; i++){
-    var n = ctx.byAddr && ctx.byAddr[hop[i]];
+    var n = ctx.byAddr[hop[i]];
     if (!n || n === r) continue;
     var g = containerOf(ctx, n);
     if (g) return g;
@@ -181,12 +244,12 @@ function containerOfNeighbour(ctx: LayoutContext, r: PlanResource): LayoutGroup 
 
 function placeRemaining(ctx: LayoutContext): void {
   ctx.vis.forEach(function(r: PlanResource){
-    /* r.kind === "group" already covers every container type (aws_vpc,
-       aws_subnet, and any future provider's equivalents) — nothing else
-       to add here. isContainerBoundary already covers a security group
-       with members the same way, via the provider's own isBoundary. */
-    if (r.kind === "group") return;
-    if (isContainerBoundary(ctx, r)) return;
+    /* A resource drawn as a box (a VPC, a subnet, a security group around
+       its members; recorded from ContainerSpec.resource) is not also drawn as
+       a tile. Every other visible resource is a tile, so each visible
+       resource appears in the diagram whatever the provider's placement
+       returns. */
+    if (ctx.boxedAddresses.has(r.addr)) return;
     /* it did not become a boundary, so it is just a tile and the action
        filter applies to it like any other */
     if (ctx.opts && ctx.opts.action && r.action !== ctx.opts.action) return;
@@ -223,7 +286,7 @@ function ancestorChains(root: LayoutGroup): Record<string, string[]> {
 
 export {
   TW, GAP, PAD, HEAD, TH_FLAT, TH_CHANGES, TH, setTileHeight,
-  tileHeight, mkGroup, measure, place, buildTree,
+  tileHeight, mkGroup, measure, place, buildTree, buildCloud,
   visibleResources, containerOf, containerOfNeighbour,
   placeRemaining, pruneEmpty, ancestorChains
 };

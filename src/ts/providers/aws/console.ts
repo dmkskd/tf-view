@@ -1,5 +1,13 @@
 // providers/aws/console.ts — deep links into the AWS web console
-import { PlanResource } from "../../types/index.js";
+import { ProviderResource, ProviderSettings, ConsoleHost, JsonValue, valueAt } from "../../sdk/index.js";
+
+/* The AWS console hosts. With allowRegionPrefix, "<region>.<host>" also
+   matches. core/links.ts returns a console link only if its host matches. */
+var AWS_CONSOLE_HOSTS: ConsoleHost[] = [
+  {host: "console.aws.amazon.com", allowRegionPrefix: true},
+  {host: "console.amazonaws.cn", allowRegionPrefix: true},
+  {host: "console.amazonaws-us-gov.com", allowRegionPrefix: true}
+];
 
 /* Console URLs are not a documented API; these templates follow the patterns
    the console has used for years. A link is only offered when the physical id
@@ -11,10 +19,12 @@ function consoleHost(region: string): string {
   return "https://" + region + ".console.aws.amazon.com";
 }
 
-function awsConsoleUrl(r: PlanResource, ctx?: any): string | null {
-  var region = ctx && ctx.region;
+function awsConsoleUrl(r: ProviderResource, settings: Readonly<ProviderSettings>): string | null {
+  var region = settings.region;
   if (!region || !/^[a-z]{2}(-[a-z]+)+-\d+$/.test(region)) return null;
-  var val = function(k: string): any { return (r.attrs && r.attrs[k]) || (r.before && r.before[k]); };
+  var val = function(k: string): JsonValue | undefined {
+    return valueAt(r.attrs, k) || (r.before ? valueAt(r.before, k) : undefined);
+  };
   var id = val("id");
   var host = consoleHost(region), q = "?region=" + encodeURIComponent(region);
 
@@ -64,4 +74,4 @@ function awsConsoleUrl(r: PlanResource, ctx?: any): string | null {
   }
 }
 
-export { awsConsoleUrl };
+export { awsConsoleUrl, AWS_CONSOLE_HOSTS };

@@ -10,8 +10,9 @@ File-specific details, exports, and implementation notes are maintained in the t
 
 - **`src/`**: Dev-time source files served by Vite during development.
   - **`css/`**: Modular stylesheets imported in cascade order by `index.css`.
-  - **`ts/core/`**: Provider-agnostic engine (plan parser, attribute diffing, layout engine, HCL reconstruction, schema handling).
-  - **`ts/providers/`**: Pluggable provider architecture (`registry.js` dispatcher with `aws/` and `gcp/` provider modules).
+  - **`ts/core/`**: Provider-neutral engine (plan parser, provider registry, attribute diffing, rule rendering, layout engine, HCL reconstruction, schema handling, shell quoting, link guard).
+  - **`ts/sdk/`**: The provider SDK: the only module a provider may import.
+  - **`ts/providers/`**: One folder per cloud (`aws/`, `gcp/`), plus `index.ts`, the list of providers this build registers.
   - **`ts/ui/`**: Browser UI components (canvas rendering, 3D isometric view, inspector drawer, sidebar, textview).
   - **`ts/types/`**: Core TypeScript type and interface definitions.
   - **`data/`**: Static fixtures (offline sample plan JSON and pruned AWS schema JSON).
@@ -41,10 +42,10 @@ just build     # or: npm run build
 ```
 
 This:
-- Inlines all modular CSS in cascade order.
-- Concatenates modular JavaScript preserving exact landmark sections.
-- Embeds minified collection kinds schema and sample plan JSON.
-- Verifies zero external runtime JavaScript dependencies.
+- Inlines all modular CSS in cascade order, with the fonts in `src/fonts/` as `data:` URIs, so the page requests no resource from another origin.
+- Bundles the TypeScript from `src/ts/main.ts` with esbuild into one inline script.
+- Writes a Content-Security-Policy that allows only that script (by its sha256 hash), blocks `eval` and network connections, and allows fonts and images only from `data:` URIs.
+- Embeds minified collection kinds schema and sample plan JSON as JSON data blocks.
 - Prints a bundle composition report with an ASCII visualizer and compression metrics.
 
 ### 3. Run Verification Suite
@@ -61,6 +62,8 @@ Or run individual verification recipes with `just`:
 just test-unit                     # 29 unit assertions
 just test-boot                     # DOM boot check
 just test-render                   # interactive headless render check
+just test-csp                      # the page's Content-Security-Policy has the expected directives
+just test-providers                # provider imports and globals; code outside providers names no provider
 just test-pure                     # check pure functions against baseline
 just test-parse                    # check parser against baseline
 just test-layout                   # check layout against baseline
@@ -79,6 +82,10 @@ cd cli && cargo test               # Run Rust CLI unit tests (redaction, XSS, LL
 | --- | --- |
 | `test` | The parse, placement and rule-diff rules, as named assertions over hand-written plans |
 | `check-boot` | Runs the whole script against a shimmed DOM; reports thrown exceptions and missing element ids |
+| `check-render` | Loads the page in jsdom, clicks through the views, hovers rule lists |
+| `check-links` | `guardedLink` and the AWS console URLs with hostile plan values; that no other source file builds a link |
+| `check-csp` | The built page's Content-Security-Policy and outside loads; the script first checks itself against modified copies of the page |
+| `check-providers` | The imports, globals and properties provider code uses; that code outside provider folders names no provider |
 | `check-pure` | Rebuilt Terraform block, CLI recipes, diffs, rule tables |
 | `check-parse` | Parser and validation messages, including malformed input |
 | `check-layout` | Position and size of every box, across three view configurations |
@@ -91,22 +98,69 @@ node tools/check-layout.js > tools/baseline/check-layout.txt
 
 ---
 
-## Pluggable Provider Architecture
+## Providers
 
-The provider system lives in `src/js/providers/`:
-- `registry.js` manages active providers and proxies catalog lookups (`REG`), CLI recipes, categories, block sizing, container placement, and rule formatting.
-- Strict DAG Layering:
-  - `UI` (`ui/*`, `app.js`) → `Providers` (`providers/registry.js`) → `Core` (`core/*`).
-  - Core does not import from specific providers.
-  - Providers do not import from UI.
-  - Circular dependencies are prevented by placing shared tree constructs in `core/tree.js`.
-- Each provider implements:
-  - `id`: Unique identifier (e.g. `"aws"`, `"google"`)
-  - `prefix`: Resource type prefix (e.g. `"aws_"`, `"google_"`)
-  - `catalog`: Resource specifications (kind, category, icon, sub-label, scope)
-  - `cli(r, ctx)`: CLI commands returned for a resource
-  - `placement`: `{ placeContainers(ctx), containerOf(ctx, r), isBoundary(ctx, r) }`
-  - `rules`: `{ rulesHtml(r), isRuleAttr(k, a, b), ruleKey(e), ruleRow(e, mark, dir), popRow(e, dir, isNacl, mark), ruleLines(r, dir, isNacl, opts) }`
+A provider contains everything specific to one cloud: its resource catalog,
+how its containers nest, its CLI commands, console links and rule lists. A
+provider returns data; core renders it. `docs/CONTRIBUTING-providers.md`
+describes the rules for provider code and how to review it.
+
+Import direction: `ui/*` and `app.ts` import `core/*`, which imports
+`types/*`. Provider files import only `sdk/index.ts` (types, plus the helper
+functions in `sdk/values.ts` and `sdk/refs.ts`). No module in `core/` imports
+a provider; `providers/index.ts` registers them at startup through
+`registerProviders` in `core/registry.ts`.
+
+To add a provider:
+
+1. Create `src/ts/providers/<name>/`. Its files may import only
+   `../../sdk/index.js` and files in the same folder; `just test-providers`
+   checks this, and also checks for DOM, network, storage, timer, `eval` and
+   HTML-sink use.
+2. Export a `ProviderPlugin` (`src/ts/types/index.ts`):
+   - `id`, `name`
+   - `sourceAddresses`: full source addresses, compared with `provider_name`
+     (`registry.terraform.io/hashicorp/google`)
+   - `localNames`: provider local names, used only when the input gives no
+     source address
+   - `typePrefix`: resource type prefix, used only for a resource without
+     `provider_name`
+   - `catalog`, `categories`, `categoryLabels`: plain data. A category colour
+     is a CSS variable (`var(--cat-net)`) or a hex colour. CSS tokens are named
+     `--cat-*` (categories), `--box-*` (core's boxes) and `--accent`, not after
+     a cloud
+   - optional `icons`: glyphs as SVG path data, from which core builds symbols
+   - `cloudLabel`; optional `globalNote`, `unplacedNote`, `cliName`, `consoleName`
+   - `settingKeys`: the provider-block arguments the hooks receive
+     (`["region"]`), read from the block each resource uses (aliased and
+     module blocks included). Registration refuses keys whose names suggest a
+     credential, and a value from a sensitive variable is not passed
+   - `cli(r, settings)`: commands as argument lists; core quotes each argument
+   - `consoleUrl(r, settings)` and `consoleHosts` (exact hostnames, optionally
+     allowing a region label in front): core validates each URL and returns a
+     link only when the user has turned links on
+   - `rules`: `ruleSet`, `describe` and `key`, returning plain text; core
+     renders the rule lists
+   - `placement.start(api)`: reads frozen copies of the provider's resources
+     (and, through `api.settingsOf(addr)`, each resource's provider-block
+     settings), adds boxes with `api.addContainer`, which core validates, and
+     returns `{containerOf}`, which answers with the references
+     `addContainer` returned. A resource that a box draws (`resource` in the
+     container spec) is not also drawn as a tile; every other resource is
+   - optional `tileSubtitle`, `sizing`
+3. Add the plugin to the list in `src/ts/providers/index.ts`.
+
+Every hook receives a `ProviderResource`: a frozen, redacted copy with only the
+fields a provider may read, with values of type `JsonValue` (read them with the
+SDK functions `asText`, `valueAt` and `asList`). Core calls `cli`,
+`consoleUrl`, `tileSubtitle`, `sizing` and `rules` through `core/hooks.ts`: a
+hook that throws or returns a value that fails validation is skipped for that
+call, the caller uses a neutral result, and the plan gets an error diagnostic.
+Placement is validated in `core/placement.ts`.
+
+Code in core, UI, SDK and types may not contain a provider's type prefix, id or
+local name in a string or regular expression; `just test-providers` checks
+this too.
 
 ## Known Limitations (vs. AWS's own diagram conventions)
 

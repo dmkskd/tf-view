@@ -1,14 +1,11 @@
-// providers/gcp/index.ts — Google Cloud Platform Provider Plugin (Starter Scaffold)
-import { ProviderPlugin, CatalogEntry, CliCommand, PlanResource } from "../../types/index.js";
-import {
-  placeGcpNetworks, placeGcpSubnetworks,
-  placeGcpContainers, containerOfGcp
-} from "./placement.js";
+// providers/gcp/index.ts — Google Cloud provider (starter: networks, subnetworks, instances, buckets)
+import { ProviderPlugin, ProviderSettings, CatalogEntry, ProviderCommand, ProviderResource, asText } from "../../sdk/index.js";
+import { startGcpPlacement } from "./placement.js";
 
 export var GCP_REG: Record<string, CatalogEntry> = {
-  google_compute_network:    {kind:"group", g:"vpc",    label:"VPC Network",    icon:"i-vpc",    cat:"net",
+  google_compute_network:    {kind:"group", label:"VPC Network",    icon:"i-vpc",    cat:"net",
                               preview:["auto_create_subnetworks","routing_mode"]},
-  google_compute_subnetwork: {kind:"group", g:"subnet", label:"Subnetwork",     icon:"i-subnet", cat:"net",
+  google_compute_subnetwork: {kind:"group", label:"Subnetwork",     icon:"i-subnet", cat:"net",
                               preview:["ip_cidr_range","region","private_ip_google_access"]},
   google_compute_instance:   {kind:"node",              label:"Compute Engine", icon:"i-ec2",    cat:"compute", sub:"machine_type",
                               preview:["zone","machine_type"]},
@@ -16,19 +13,32 @@ export var GCP_REG: Record<string, CatalogEntry> = {
                               preview:["location","storage_class"]}
 };
 
-export function GCP_CLI(r: PlanResource, ctx?: any): CliCommand[] {
-  var L: CliCommand[] = [];
-  function add(label: string, cmd: string) { L.push({label:label, cmd:cmd}); }
-  var t = r.type;
-  switch (t) {
-    case "google_compute_instance":
-      add("Describe", "gcloud compute instances describe " + r.name + (ctx && ctx.zone ? " --zone " + ctx.zone : ""));
+/* gcloud inspection commands. The resource's cloud name is its `name`
+   attribute, not its Terraform label; the placeholder <name> is used when the
+   plan does not contain it. */
+export function gcpCommands(r: ProviderResource, settings: Readonly<ProviderSettings>): ProviderCommand[] {
+  var L: ProviderCommand[] = [];
+  function add(label: string, argv: string[]) { L.push({label:label, argv:argv}); }
+  var name = asText(r.attrs.name) || "<name>";
+  var project = settings.project ? ["--project", settings.project] : [];
+  switch (r.type) {
+    case "google_compute_instance": {
+      var zone = asText(r.attrs.zone) || settings.zone;
+      add("Describe", ["gcloud", "compute", "instances", "describe", name]
+        .concat(zone ? ["--zone", String(zone)] : [], project));
       break;
+    }
     case "google_compute_network":
-      add("Describe", "gcloud compute networks describe " + r.name);
+      add("Describe", ["gcloud", "compute", "networks", "describe", name].concat(project));
       break;
+    case "google_compute_subnetwork": {
+      var region = asText(r.attrs.region) || settings.region;
+      add("Describe", ["gcloud", "compute", "networks", "subnets", "describe", name]
+        .concat(region ? ["--region", String(region)] : [], project));
+      break;
+    }
     case "google_storage_bucket":
-      add("Describe", "gcloud storage buckets describe gs://" + r.name);
+      add("Describe", ["gcloud", "storage", "buckets", "describe", "gs://" + name].concat(project));
       break;
   }
   return L;
@@ -37,15 +47,23 @@ export function GCP_CLI(r: PlanResource, ctx?: any): CliCommand[] {
 export const gcpProvider: ProviderPlugin = {
   id: "google",
   name: "Google Cloud",
-  prefix: "google_",
-  get catalog() { return typeof GCP_REG !== "undefined" ? GCP_REG : {}; },
+  sourceAddresses: ["registry.terraform.io/hashicorp/google", "registry.terraform.io/hashicorp/google-beta",
+            "registry.opentofu.org/hashicorp/google", "registry.opentofu.org/hashicorp/google-beta"],
+  localNames: ["google", "google-beta"],
+  typePrefix: "google_",
+  cloudLabel: "Google Cloud",
+  globalNote: "project-level",
+  unplacedNote: "no network reference",
+  settingKeys: ["project", "region", "zone"],
+  cliName: "gcloud CLI",
+  catalog: GCP_REG,
   categories: {
-    compute: "var(--aws-compute)",
-    net:     "var(--aws-net)",
-    sec:     "var(--aws-sec)",
-    storage: "var(--aws-storage)",
-    db:      "var(--aws-db)",
-    mgmt:    "var(--aws-mgmt)"
+    compute: "var(--cat-compute)",
+    net:     "var(--cat-net)",
+    sec:     "var(--cat-sec)",
+    storage: "var(--cat-storage)",
+    db:      "var(--cat-db)",
+    mgmt:    "var(--cat-mgmt)"
   },
   categoryLabels: [
     ["compute", "Compute Engine"],
@@ -55,24 +73,8 @@ export const gcpProvider: ProviderPlugin = {
   sizing: {
     blockHeight: () => 26
   },
-  cli: GCP_CLI,
-  rules: {
-    rulesHtml: () => null,
-    isRuleAttr: () => false,
-    ruleKey: () => "",
-    ruleRow: () => "",
-    popRow: () => "",
-    ruleLines: () => ""
-  },
-  get placement() {
-    return {
-      placeContainers: placeGcpContainers,
-      containerOf: containerOfGcp,
-      isBoundary: () => false,
-      placeNetworks: placeGcpNetworks,
-      placeSubnets: placeGcpSubnetworks
-    };
-  }
+  cli: gcpCommands,
+  placement: { start: startGcpPlacement }
 };
 
 export default gcpProvider;

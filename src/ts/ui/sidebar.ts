@@ -1,5 +1,5 @@
-import { $, html, raw, type SafeHtml } from "../core/util.js";
-import { REG, CAT, CAT_LABEL } from "../providers/registry.js";
+import { $, html, raw, emphasisHtml, type SafeHtml } from "../core/util.js";
+import { catalogEntry, categoryColor, categoryLabels, typeWithoutPrefix } from "../core/registry.js";
 import { schemaFit } from "../core/schema.js";
 import { state, onRender, setMode, onSelect } from "../core/state.js";
 import { ACTION_COLOR, render, select, icoSvg, changedKeys } from "./diagram.js";
@@ -179,7 +179,7 @@ function panelCoverage(){
     bar.innerHTML = "";
     var segs: [number, string, string][] = [
       [total - missing, "var(--create)", "resources drawn as tiles"],
-      [hiddenAssoc, "var(--aws-net)", "association resources hidden (open the list below)"],
+      [hiddenAssoc, "var(--accent)", "association resources hidden (open the list below)"],
       [hiddenUnsup, "var(--warn)", "resources of a type with no tile yet, hidden (open the list below)"]
     ];
     segs.forEach(function(seg){
@@ -268,7 +268,7 @@ function panelTypes(): void {
 
   var buckets: Record<string, string[]> = {};
   types.forEach(function(t: string){
-    var spec = REG[t];
+    var spec = catalogEntry(t);
     var cat = spec ? (spec.cat || "other") : "other";
     (buckets[cat] = buckets[cat] || []).push(t);
   });
@@ -277,7 +277,7 @@ function panelTypes(): void {
   if (!f) return;
   f.innerHTML = "";
 
-  CAT_LABEL.forEach(function(c: [string, string]){
+  categoryLabels().forEach(function(c: [string, string]){
     var list = buckets[c[0]];
     if (!list || !list.length) return;
 
@@ -288,7 +288,7 @@ function panelTypes(): void {
 
     var head = document.createElement("button");
     head.className = "cat" + (allOn ? "" : " off");
-    var dotBg = c[0] === "other" ? "var(--warn)" : ((CAT as any)[c[0]] || "var(--warn)");
+    var dotBg = c[0] === "other" ? "var(--warn)" : (categoryColor(c[0]) || "var(--warn)");
     head.innerHTML = html`
       <span class="dot" style="background:${dotBg}"></span>
       ${c[1]}
@@ -299,7 +299,7 @@ function panelTypes(): void {
     f.appendChild(head);
 
     list.forEach(function(t: string){
-      var spec = REG[t];
+      var spec = catalogEntry(t);
       var on = model.resources.some(function(r: any){ return r.type === t && r.enabledType !== false; });
       var row = document.createElement("label");
       row.className = "flt" + (spec ? "" : " unsup");
@@ -307,7 +307,7 @@ function panelTypes(): void {
       row.innerHTML = html`
         <input type="checkbox"${raw(on ? " checked" : "")}>
         ${icoSvg(spec, 18)}
-        <span class="nm">${t.replace(/^aws_/, "")}</span>
+        <span class="nm">${typeWithoutPrefix(t)}</span>
         <span class="ct">${model.typeCounts[t]}</span>
       `.toString();
       var inp = row.querySelector("input");
@@ -334,11 +334,12 @@ function panelDiagnostics(): void {
       "Using the provider schema you loaded.");
   } else if (fit.mismatch){
     if (model.diag) model.diag("warn", "schema-version",
-      html`<span title="set/list/map can differ between major provider versions. Drop terraform providers schema -json output to be exact.">plan targets <b>${fit.constraint}</b>, bundled schema is <b>${fit.bundled}</b></span>`.toString());
+      "plan targets **" + fit.constraint + "**, bundled schema is **" + fit.bundled + "**", null,
+      "set/list/map can differ between major provider versions. Drop terraform providers schema -json output to be exact.");
   }
   if (fit.unknown.length){
     if (model.diag) model.diag("info", "schema-unknown",
-      html`<b>${fit.unknown.length}</b> unknown type${fit.unknown.length > 1 ? "s" : ""}`.toString(), fit.unknown);
+      "**" + fit.unknown.length + "** unknown type" + (fit.unknown.length > 1 ? "s" : ""), fit.unknown);
   }
 
   const d = $("diag");
@@ -355,7 +356,7 @@ function panelDiagnostics(): void {
     if (!g.detail || !g.detail.length){
       var el = document.createElement("div");
       el.className = "dg " + g.level;
-      el.innerHTML = html`${icon}<span>${raw(g.msg)}</span>`.toString();
+      el.innerHTML = html`${icon}<span title="${g.hint || false}">${raw(emphasisHtml(g.msg))}</span>`.toString();
       d.appendChild(el);
       return;
     }
@@ -365,7 +366,7 @@ function panelDiagnostics(): void {
     det.className = "dg " + g.level + " has-detail";
     det.innerHTML = html`
       <summary>
-        ${icon}<span>${raw(g.msg)}</span>
+        ${icon}<span title="${g.hint || false}">${raw(emphasisHtml(g.msg))}</span>
         <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
           <path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>

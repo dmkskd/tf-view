@@ -1,6 +1,7 @@
 // core/schema.ts — Schema pruning, localStorage cache & kind lookups
 import { escapeHtml, $ } from "./util.js";
 import { state } from "./state.js";
+import { getProviderByTypePrefix, getAllProviders } from "./registry.js";
 
 var SCHEMA: any = null;                    /* {type: resource_schema}, from a dropped file */
 var SCHEMA_META: any = null;               /* {provider, version, types}                   */
@@ -79,26 +80,43 @@ function kindSource(type: string, key: string): string | null {
   }
   loadKinds();
   if (KINDS && KINDS[type] && KINDS[type][key]){
-    var m = (KINDS_META.providers || {}).aws || {};
-    return "aws " + (m.version || "bundled");
+    var p = getProviderByTypePrefix(type);
+    var m = (p && bundledMeta(p.id)) || {};
+    return (p ? p.id + " " : "") + (m.version || "bundled");
   }
   return null;
 }
 
+/* The bundled table's metadata for a provider id ({version, ...}), or null. */
+function bundledMeta(id: string): any {
+  loadKinds();
+  return (KINDS_META && KINDS_META.providers && KINDS_META.providers[id]) || null;
+}
+
+/* Compares the bundled table with this plan, for the first registered
+   provider in the plan that the table covers: its version against the
+   plan's version constraint, and the plan's types missing from it. */
 function schemaFit(): { bundled: string | null; unknown: string[]; constraint: string | null; mismatch: boolean; usingLoaded: boolean } {
   loadKinds();
-  var meta = (KINDS_META && KINDS_META.providers && KINDS_META.providers.aws) || {};
-  var bundled = meta.version || null;
-
   var currentModel = state.model;
   var types = Object.keys((currentModel && currentModel.typeCounts) || {});
+  var covered = function(t: string): string | null {
+    var p = getProviderByTypePrefix(t);
+    return p && bundledMeta(p.id) ? p.id : null;
+  };
+  var inPlan: Record<string, boolean> = {};
+  types.forEach(function(t: string){ var id = covered(t); if (id) inPlan[id] = true; });
+  var main = getAllProviders().filter(function(p){ return inPlan[p.id]; })[0];
+  var bundled = (main && bundledMeta(main.id).version) || null;
+
   /* KINDS holds every type in the provider, with {} when it has no
      collections, so absence genuinely means "this version has no such type" */
   var unknown = types.filter(function(t: string){
-    return t.indexOf("aws_") === 0 && !(KINDS && KINDS[t]);
+    return !!covered(t) && !(KINDS && KINDS[t]);
   });
 
-  var constraint = currentModel && (currentModel as any).providerConstraint;
+  var constraint = main && currentModel && currentModel.providerVersionConstraints
+    ? currentModel.providerVersionConstraints[main.id] : null;
   var wantMajor = constraint && (constraint.match(/(\d+)/) || [])[1];
   var haveMajor = bundled && bundled.split(".")[0];
 

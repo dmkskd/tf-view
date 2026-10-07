@@ -1,6 +1,7 @@
 // app.js — Main application lifecycle, state & event orchestration
-import { escapeHtml, $, html } from "./core/util.js";
+import { $, html } from "./core/util.js";
 import { parsePlan } from "./core/parser.js";
+import { addProviderIconSymbols } from "./core/icons.js";
 import { isSchemaFile, pruneSchema, storeSchema, restoreSchema } from "./core/schema.js";
 import { state, setModel, setSelected, onMode } from "./core/state.js";
 import {
@@ -61,7 +62,7 @@ function loadText(text: string, name: string): void {
   try { plan = JSON.parse(text); }
   catch (e: any){
     var errModel: any = {resources:[], byAddr:{}, typeCounts:{}, diagnostics:[
-      {level:"err", code:"parse", msg:"Could not parse this file as JSON — <b>" + escapeHtml(e.message) + "</b>"}
+      {level:"err", code:"parse", msg:"Could not parse this file as JSON \u2014 **" + String(e && e.message || e).replace(/\*/g, "") + "**"}
     ]};
     setModel(errModel);
     var srcName = $("srcName");
@@ -82,10 +83,9 @@ function loadText(text: string, name: string): void {
     if (!model){
       var diagEl = $("diag");
       if (diagEl) {
-        diagEl.innerHTML =
-          '<div class="dg warn"><span class="ic">!</span><span>That is a provider ' +
-          'schema. Load a plan first, then drop it again so it can be pruned to ' +
-          'the types the plan uses.</span></div>';
+        diagEl.innerHTML = html`<div class="dg warn"><span class="ic">!</span><span>That is a provider
+          schema. Load a plan first, then drop it again so it can be pruned to
+          the types the plan uses.</span></div>`.toString();
       }
       return;
     }
@@ -99,7 +99,7 @@ function loadText(text: string, name: string): void {
       storeSchema(pr.schema, pr.meta);
       if (model.diag) {
         model.diag("ok", "schema",
-          "Provider schema loaded for <b>" + pr.meta.types + "</b> of this plan\u2019s types. " +
+          "Provider schema loaded for **" + pr.meta.types + "** of this plan\u2019s types. " +
           "Collection diffs are now schema-verified.");
       }
     }
@@ -132,8 +132,27 @@ if (fileInput) fileInput.addEventListener("change", function(e: Event){
    the drag exits over a child element instead of exactly at <html>. Track
    nesting depth instead, and reset on drop/dragend as a fail-safe. */
 var dragDepth = 0;
-/* A report injected with its plan (window.__TFVIEW_VIEWER_ONLY) only shows that plan: no loading, no samples. */
-function viewerOnly(): boolean { return !!(window as any).__TFVIEW_VIEWER_ONLY; }
+/* Settings that a report generator (the tfview CLI,
+   demo/atlantis/shared/inject.js) writes into the tfview-config JSON data
+   block. A data block, unlike an inline script, does not need its own hash
+   in the Content-Security-Policy. Only the fields below are read, and each
+   is type-checked. */
+interface BootConfig { autoload: boolean; viewerOnly: boolean; showChanges: boolean; label: string; }
+var bootConfigCache: BootConfig | null = null;
+function bootConfig(): BootConfig {
+  if (bootConfigCache) return bootConfigCache;
+  var c: any = {};
+  try { c = JSON.parse(sampleText("tfview-config") || "{}") || {}; } catch (e) { c = {}; }
+  bootConfigCache = {
+    autoload: c.autoload === true,
+    viewerOnly: c.viewerOnly === true,
+    showChanges: c.showChanges === true,
+    label: typeof c.label === "string" && c.label ? c.label.slice(0, 200) : "terraform plan"
+  };
+  return bootConfigCache;
+}
+/* A report injected with its plan (viewerOnly) only shows that plan: no loading, no samples. */
+function viewerOnly(): boolean { return bootConfig().viewerOnly; }
 document.addEventListener("dragenter", function(e: Event){
   e.preventDefault(); if (viewerOnly()) return;
   dragDepth++; document.body.classList.add("dragging");
@@ -423,22 +442,23 @@ if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSam
 
 function boot(): void {
   if (viewerOnly()) document.body.classList.add("viewer-only");
+  addProviderIconSymbols(document);
   restoreSchema();
   var has = !!sampleText(DEFAULT_SAMPLE_ID);
   if (sampleBtn) sampleBtn.disabled = !has;
   var emptySBtn = $("emptySampleBtn") as HTMLButtonElement | null;
   if (emptySBtn) emptySBtn.disabled = !has;
 
+  var cfg = bootConfig();
   var injected = sampleText("injected-plan");
-  var label = (window as any).__TFVIEW_PLAN_LABEL || "terraform plan";
-  if ((window as any).__TFVIEW_AUTOLOAD && injected) {
-    try { load(JSON.parse(injected), label, injected); }
-    catch(e){ loadText(injected, label); }
-    return;
-  }
-  if ((window as any).__TFVIEW_AUTOLOAD && has) {
-    try { load(JSON.parse(sampleText(DEFAULT_SAMPLE_ID)), label, sampleText(DEFAULT_SAMPLE_ID)); }
-    catch(e){ loadText(sampleText(DEFAULT_SAMPLE_ID), label); }
+  var text = injected || (has ? sampleText(DEFAULT_SAMPLE_ID) : "");
+  if (cfg.autoload && text) {
+    try { load(JSON.parse(text), cfg.label, text); }
+    catch(e){ loadText(text, cfg.label); }
+    /* switch to Changes mode, unless the plan changes nothing (the Changes
+       button is then disabled) */
+    var chg = $("modeChg") as HTMLButtonElement | null;
+    if (cfg.showChanges && chg && !chg.disabled) applyMode("changes");
     return;
   }
   setEmpty(true);

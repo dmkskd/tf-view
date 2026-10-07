@@ -7,8 +7,11 @@ export function escapeHtml(s: any): string {
   });
 }
 
-export function q(s: any): string {
-  return String(s).replace(/"/g, '\"');
+/* Renders a diagnostic message: escapes the whole text, then turns **word**
+   into <b>word</b>. Markup in a message, including in plan values, is
+   therefore displayed as text. */
+export function emphasisHtml(text: any): string {
+  return escapeHtml(text == null ? "" : text).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
 }
 
 export const $ = function<T extends HTMLElement = HTMLElement>(id: string): T | null {

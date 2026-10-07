@@ -1,48 +1,40 @@
 // providers/aws/index.ts — AWS Provider Plugin
-import { ProviderPlugin } from "../../types/index.js";
-import { AWS_REG, CAT, CAT_LABEL, SIZE_H, awsBlockHeight } from "./catalog.js";
-import { awsCli } from "./cli.js";
-import { awsConsoleUrl } from "./console.js";
-import {
-  PORT_NAME, portName, portText, protoText, peerText,
-  awsRulesHtml, awsIsRuleAttr, awsRuleKey, awsRuleRow, awsPopRow, awsRuleLines
-} from "./rules.js";
-import {
-  vpcOf, subnetOf, placeVpcs, placeSubnets, placeSecurityGroups,
-  placeAwsContainers, containerOfAws, isBoundaryAws
-} from "./placement.js";
+import { ProviderPlugin } from "../../sdk/index.js";
+import { AWS_REG, CAT, CAT_LABEL, awsBlockHeight } from "./catalog.js";
+import { awsCommands } from "./cli.js";
+import { awsConsoleUrl, AWS_CONSOLE_HOSTS } from "./console.js";
+import { awsRuleSet, awsDescribeRule, awsRuleKey } from "./rules.js";
+import { startAwsPlacement } from "./placement.js";
 
 export const awsProvider: ProviderPlugin = {
   id: "aws",
   name: "AWS",
-  prefix: "aws_",
+  sourceAddresses: ["registry.terraform.io/hashicorp/aws", "registry.opentofu.org/hashicorp/aws"],
+  localNames: ["aws"],
+  typePrefix: "aws_",
+  cloudLabel: "AWS Cloud",
+  globalNote: "account-level",
+  unplacedNote: "no vpc or subnet reference",
+  settingKeys: ["region"],
+  cliName: "AWS CLI",
+  consoleName: "AWS console",
+  consoleHosts: AWS_CONSOLE_HOSTS,
   catalog: AWS_REG,
   categories: CAT,
   categoryLabels: CAT_LABEL,
-  cli: awsCli,
+  cli: awsCommands,
   consoleUrl: awsConsoleUrl,
-  get sizing() {
-    return { blockHeight: awsBlockHeight, SIZE_H };
+  /* a VPC endpoint's service name, shortened: "com.amazonaws.eu-west-1.s3" -> "s3" */
+  tileSubtitle: function(r, value) {
+    return r.type === "aws_vpc_endpoint" ? (value.split(".").slice(3).join(".") || value) : value;
   },
-  get rules() {
-    return {
-      PORT_NAME, portName, portText, protoText, peerText,
-      rulesHtml: awsRulesHtml,
-      isRuleAttr: awsIsRuleAttr,
-      ruleKey: awsRuleKey,
-      ruleRow: awsRuleRow,
-      popRow: awsPopRow,
-      ruleLines: awsRuleLines
-    };
+  sizing: { blockHeight: awsBlockHeight },
+  rules: {
+    ruleSet: awsRuleSet,
+    describe: awsDescribeRule,
+    key: awsRuleKey
   },
-  get placement() {
-    return {
-      placeContainers: placeAwsContainers,
-      containerOf: containerOfAws,
-      isBoundary: isBoundaryAws,
-      vpcOf, subnetOf, placeVpcs, placeSubnets, placeSecurityGroups
-    };
-  }
+  placement: { start: startAwsPlacement }
 };
 
 export default awsProvider;
