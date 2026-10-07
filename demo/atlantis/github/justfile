@@ -1,0 +1,74 @@
+set shell := ["bash", "-cu"]
+set dotenv-load
+
+# derived from GH_REPO in .env; docker compose needs them for every command, not only `up`
+export GH_USER := `echo "${GH_REPO%%/*}"`
+export REPORTS_URL := `r="$GH_REPO"; echo "https://${r%%/*}.github.io/${r##*/}/reports"`
+
+default:
+    @just --list
+
+# Push the base stack to the repo and set up GitHub Pages (run once; safe to re-run after changing shared/infra)
+seed:
+    scripts/seed.sh
+
+# Build the viewer if needed, point the repo's webhook at the relay, start Atlantis and print READY
+up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f ../../../dist/index.html ] || just --justfile ../../../justfile --working-directory ../../.. build
+    docker compose up -d --build
+    scripts/webhook.sh on
+    echo "waiting for Atlantis..."
+    for i in $(seq 1 60); do curl -fs -o /dev/null http://127.0.0.1:4142/healthz && break; sleep 2; done
+    curl -fs -o /dev/null http://127.0.0.1:4142/healthz || { echo "Atlantis did not start: just logs"; exit 1; }
+    echo ""; echo "READY: Atlantis listens for ${GH_REPO} through ${SMEE_URL}"
+    echo "Next: just mr-create"
+
+# Remove the webhook and stop everything
+down:
+    scripts/webhook.sh off || true
+    docker compose down
+
+# Open the PR: adds the app (EC2 instance + security group)
+mr-create:
+    scripts/demo.sh mr-create
+
+# Edit a subnet's tag by hand in Floci (outside Terraform), so the next plan shows drift
+drift:
+    docker compose run --rm --no-deps drift
+
+# Review change 1: delete the legacy bucket
+mr-change-1:
+    scripts/demo.sh mr-change-1
+
+# Review change 2: update the VPC's Env tag (in place)
+mr-change-2:
+    scripts/demo.sh mr-change-2
+
+# Review change 3: add an S3 bucket
+mr-change-3:
+    scripts/demo.sh mr-change-3
+
+# Review change 4: add messaging (SNS topic + SQS queue)
+mr-change-4:
+    scripts/demo.sh mr-change-4
+
+# Show the open PR and its commits
+status:
+    scripts/demo.sh status
+
+# (optional) Comment `atlantis apply` on the open PR
+apply:
+    scripts/demo.sh apply
+
+# (optional) Merge the open PR
+merge:
+    scripts/demo.sh merge
+
+logs service="atlantis":
+    docker compose logs -f {{service}}
+
+# Reload Atlantis (after changing atlantis/repos.yaml)
+restart:
+    docker compose restart atlantis

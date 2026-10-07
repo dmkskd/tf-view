@@ -1,0 +1,51 @@
+repos:
+  - id: /.*/
+    workflow: tfplanview
+    allowed_overrides: [workflow]
+
+workflows:
+  tfplanview:
+    plan:
+      steps:
+        - init
+        - plan
+        - run: |
+            set -e
+            terraform show -json "$PLANFILE" > "$DIR/plan.json"
+            name="pr${PULL_NUM}-${PROJECT_NAME:-default}-$(date +%s).html"
+            node /opt/tfplanview/inject.js /opt/tfplanview/index.html "$DIR/plan.json" \
+              "PR #${PULL_NUM} ${REPO_REL_DIR}" > "/reports/$name"
+            rm -f "$DIR/plan.json"
+            R="${BASE_REPO_OWNER}/${BASE_REPO_NAME}"
+            # Publish the report to the gh-pages branch, so its link keeps working once Atlantis is switched off.
+            b64=$(mktemp)
+            base64 "/reports/$name" | tr -d '\n' > "$b64"
+            jq -n --rawfile c "$b64" --arg m "report $name" '{message:$m, content:$c, branch:"gh-pages"}' \
+              | gh api -X PUT "repos/$R/contents/reports/$name" --input - >/dev/null
+            rm -f "$b64"
+            # the commit that triggered this plan, quoted at the top of the comment
+            chg=$(git -C "$DIR" log -1 --format=%B "$HEAD_COMMIT" 2>/dev/null | sed 's/^/> /' || true)
+            # Optional screenshot of the plan (needs Chromium in the image; PLAN_IMAGE=off disables it)
+            attach=""
+            if [ "${PLAN_IMAGE:-on}" != off ] && command -v chromium >/dev/null; then
+              png="/reports/${name%.html}.png"
+              chromium --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars \
+                --window-size=1400,900 --virtual-time-budget=15000 --screenshot="$png" "file:///reports/$name" >/dev/null 2>&1 || true
+              [ -s "$png" ] && attach="--attach $png"
+            fi
+            body=$(mktemp)
+            printf '### Visual plan (%s)\n%s\n\n**[Open the visual plan](%s/%s)**\n' \
+              "${PROJECT_NAME:-default}" "$chg" "${REPORTS_URL}" "$name" > "$body"
+            curl_url=$(gh pr comment "$PULL_NUM" -R "$R" --body-file "$body" $attach | tail -1)
+            rm -f "$body"
+            if [ -n "$attach" ]; then
+              # make the screenshot a link to the report (a bare image opens full size instead)
+              cid=${curl_url##*issuecomment-}
+              link="${REPORTS_URL}/${name}"
+              new=$(gh api "repos/$R/issues/comments/$cid" --jq .body | sed -E "s|(!\[[^]]*\]\([^)]*\))|[\1]($link)|")
+              gh api -X PATCH "repos/$R/issues/comments/$cid" -f body="$new" >/dev/null
+            fi
+            echo "Visual plan: ${REPORTS_URL}/${name}"
+    apply:
+      steps:
+        - apply

@@ -1,0 +1,84 @@
+# Local Atlantis for the GitHub demo: Floci (AWS emulator), the base stack, Atlantis and a webhook relay.
+#   just up   -> points the repo's webhook at the relay channel and starts everything
+# Nothing connects in to this machine: GitHub posts to the smee.io channel, and the relay container
+# (connecting out) hands each event to Atlantis, which accepts it only for the one allow-listed repo.
+name: atlantis-github
+services:
+  floci:
+    image: floci/floci:latest
+
+  # Terraform state bucket in Floci (state must outlive each PR's working directory to get real diffs)
+  bucket:
+    image: curlimages/curl
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["until curl -fsS -X PUT http://floci:4566/tfstate >/dev/null; do sleep 1; done; echo state bucket ready"]
+    depends_on:
+      floci: { condition: service_healthy }
+
+  # One-shot: applies the base stack (network + a legacy bucket) to Floci, once.
+  # Skipped when Floci's state already has resources (e.g. after a PR was applied).
+  base:
+    image: hashicorp/terraform:1.9
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        rm -rf /work
+        mkdir /work
+        cp /seed/main.tf /work
+        cd /work
+        terraform init -input=false >/dev/null
+        if [ -z "$$(terraform state list)" ]; then terraform apply -auto-approve -input=false; else echo "state not empty, base left as is"; fi
+    depends_on:
+      bucket: { condition: service_completed_successfully }
+    volumes:
+      - ../shared/infra:/seed:ro
+
+  atlantis:
+    build:
+      context: ..
+      dockerfile: github/atlantis/Dockerfile
+      args: { PLAN_IMAGE: "on" }   # "off" skips Chromium: comments get the link only
+    depends_on:
+      base: { condition: service_completed_successfully }
+    ports:
+      - "127.0.0.1:4142:4141"       # this machine only (4141 belongs to the GitLab demo)
+    environment:
+      ATLANTIS_GH_USER: ${GH_USER:?run through just}
+      ATLANTIS_GH_TOKEN: ${GH_TOKEN:?missing in .env}
+      ATLANTIS_GH_WEBHOOK_SECRET: ${GH_WEBHOOK_SECRET:?missing in .env}
+      ATLANTIS_REPO_ALLOWLIST: github.com/${GH_REPO:?missing in .env}   # one repo only
+      ATLANTIS_ATLANTIS_URL: http://localhost:4142
+      ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
+      ATLANTIS_PORT: "4141"
+      GH_TOKEN: ${GH_TOKEN}          # for the gh CLI used by the workflow
+      PLAN_IMAGE: "on"
+      REPORTS_URL: ${REPORTS_URL:?run through just}
+    volumes:
+      - ./atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro
+      - ../../../dist/index.html:/opt/tfplanview/index.html:ro   # `just build` first (just up does it)
+      - ./reports:/reports
+
+  # Webhook relay: connects out to the smee.io channel and forwards each GitHub event to Atlantis.
+  relay:
+    image: node:22-alpine
+    command: ["npx", "--yes", "smee-client@5", "--url", "${SMEE_URL:?missing in .env}", "--target", "http://atlantis:4141/events"]
+    depends_on:
+      - atlantis
+
+  # `just drift` (profile: only runs on request). Someone edits a subnet's tag by hand, outside Terraform.
+  drift:
+    image: amazon/aws-cli
+    profiles: [demo]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        id=$$(aws ec2 describe-subnets --filters Name=cidr-block,Values=10.0.1.0/24 --query "Subnets[0].SubnetId" --output text)
+        aws ec2 create-tags --resources "$$id" --tags Key=Name,Value=hand-edited
+        echo "Edited subnet $$id by hand: Name = hand-edited. The next plan reports it as drift and puts it back."
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://floci:4566
