@@ -40,9 +40,8 @@
   #textPlan .tv-res.collapsed .tv-more{display:inline; color:var(--faint);}
   #textPlan .tv-res.collapsed .tv-more::after{content:"  \2026 " attr(data-label) " }";}
   #textPlan .tv-res.collapsed .tv-body{display:none;}
-  #textPlan .tsec-all{margin-left:12px; font:inherit; font-size:11px; letter-spacing:0; text-transform:none; color:var(--muted);
-    background:none; border:1px solid var(--line); border-radius:6px; padding:1px 8px; cursor:pointer;}
-  #textPlan .tsec-all:hover{color:var(--ink); border-color:var(--ink);}
+  #textPlan .tsec-bar{display:flex; justify-content:flex-end; margin:8px 0 0;}
+  #textPlan .tsec-bar .btn{height:24px; font-size:12px; padding:0 10px; letter-spacing:0; text-transform:none;}
   #textPlan .tv-res:hover{background:color-mix(in srgb, var(--ink) 3%, transparent);}
   #textPlan .tv-res.sel{background:color-mix(in srgb, var(--ink) 8%, transparent);}
   #textPlan .hd{border-radius:3px; padding:1px 4px; margin-left:-4px;}

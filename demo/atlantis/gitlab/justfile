@@ -16,6 +16,10 @@ up:
 mr-create:
     docker compose run --rm --build demo mr-create
 
+# Edit a subnet's tag by hand in Floci (outside Terraform), so the next plan shows drift
+drift:
+    docker compose run --rm --no-deps drift
+
 # Review change 1: delete the legacy bucket
 mr-change-1:
     docker compose run --rm --build demo mr-change-1

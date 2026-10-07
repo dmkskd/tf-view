@@ -112,6 +112,23 @@ services:
     volumes:
       - shared:/shared:ro
 
+  # `just drift` (profile: only runs on request). Someone edits a subnet's tag by hand, outside Terraform.
+  drift:
+    image: amazon/aws-cli
+    profiles: [demo]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        id=$$(aws ec2 describe-subnets --filters Name=cidr-block,Values=10.0.1.0/24 --query "Subnets[0].SubnetId" --output text)
+        aws ec2 create-tags --resources "$$id" --tags Key=Name,Value=hand-edited
+        echo "Edited subnet $$id by hand: Name = hand-edited. The next plan reports it as drift and puts it back."
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://floci:4566
+
 volumes:
   gitlab-config:
   gitlab-data:

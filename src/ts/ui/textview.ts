@@ -77,7 +77,7 @@ function tvLit(v: any): string {
 /* Topology + Text is the whole document: every resource with its planned
    values, the way `terraform show` writes it. No markers, because nothing
    is being compared. */
-function documentBody(): string {
+function documentBody(sectionOnly?: boolean): string {
   var model = state.model, opts = state.opts;
   if (!model) return "";
   var list = model.resources.filter(function(r: any){
@@ -99,8 +99,11 @@ function documentBody(): string {
     out.push('<span class="c"># \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500</span>');
   }
   out.push("");
-  out = out.concat(tvVariables());
-  out = out.concat(tvDrift());
+  /* as a section of its own, Variables and Drift already have theirs: do not repeat them here */
+  if (!sectionOnly) {
+    out = out.concat(tvVariables());
+    out = out.concat(tvDrift());
+  }
   out = out.concat(tvHead("Resources", list.length));
 
   list.forEach(function(r: any){
@@ -349,7 +352,7 @@ function textSections(): TextSection[] {
       note:"changed outside terraform since the last apply"});
 
     out.push({key:"resources", label:"Resources", count:null,
-      body:documentBody(), note:"as they will be after apply"});
+      body:documentBody(true), note:"as they will be after apply"});
 
     var oo = tvOutputs(false);
     if (oo.length) out.push({key:"outputs", label:"Outputs", count:null,
@@ -569,9 +572,9 @@ function renderText(): void {
                      (s.count !== null && s.count !== undefined
                         ? '<span class="n">' + s.count + '</span>' : '') +
                      (s.note ? '<span class="note">' + escapeHtml(s.note) + '</span>' : '') +
-                     (s.body.indexOf('class="tv-res"') >= 0
-                        ? '<button type="button" class="tsec-all"></button>' : '') +
                    '</summary>' +
+                   (s.body.indexOf('class="tv-res"') >= 0
+                      ? '<div class="tsec-bar"><button type="button" class="btn tsec-all"></button></div>' : '') +
                    '<pre>' + s.body + '</pre>' +
                  '</details>';
         }).join("")

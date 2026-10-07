@@ -6,6 +6,7 @@ and comments a link to the plan rendered by tfplanview.
 ```sh
 just up            # first boot takes several minutes
 just mr-create     # open the MR
+just drift         # (optional) hand-edit a subnet tag outside Terraform, so the next plan shows drift
 just mr-change-1   # review changes, one commit each; Atlantis re-plans every push
 just mr-change-2
 just mr-change-3
