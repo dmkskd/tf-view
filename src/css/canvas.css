@@ -30,6 +30,26 @@
     font-family:"IBM Plex Mono",monospace; font-size:12.5px; line-height:1.65;
     color:var(--body); white-space:pre;
   }
+  #textPlan .tv-res{position:relative; cursor:pointer; border-radius:4px; margin:0 -8px 0 -18px; padding:0 8px 0 18px;}
+  #textPlan .tv-chev{position:absolute; left:2px; top:0; width:16px; height:1.65em; cursor:pointer;}
+  #textPlan .tv-chev::before{content:""; position:absolute; left:4px; top:calc(50% - 3px); width:5px; height:5px;
+    border:solid var(--faint); border-width:0 1.5px 1.5px 0; transform:rotate(45deg); transition:transform .12s ease;}
+  #textPlan .tv-res.collapsed .tv-chev::before{transform:rotate(-45deg);}
+  #textPlan .tv-chev:hover::before{border-color:var(--ink);}
+  #textPlan .tv-more{display:none;}
+  #textPlan .tv-res.collapsed .tv-more{display:inline; color:var(--faint);}
+  #textPlan .tv-res.collapsed .tv-more::after{content:"  \2026 " attr(data-label) " }";}
+  #textPlan .tv-res.collapsed .tv-body{display:none;}
+  #textPlan .tsec-all{margin-left:12px; font:inherit; font-size:11px; letter-spacing:0; text-transform:none; color:var(--muted);
+    background:none; border:1px solid var(--line); border-radius:6px; padding:1px 8px; cursor:pointer;}
+  #textPlan .tsec-all:hover{color:var(--ink); border-color:var(--ink);}
+  #textPlan .tv-res:hover{background:color-mix(in srgb, var(--ink) 3%, transparent);}
+  #textPlan .tv-res.sel{background:color-mix(in srgb, var(--ink) 8%, transparent);}
+  #textPlan .hd{border-radius:3px; padding:1px 4px; margin-left:-4px;}
+  #textPlan .hd-create{background:color-mix(in srgb, var(--create) 18%, transparent);}
+  #textPlan .hd-update{background:color-mix(in srgb, var(--update) 18%, transparent);}
+  #textPlan .hd-replace{background:color-mix(in srgb, var(--replace) 22%, transparent);}
+  #textPlan .hd-delete{background:color-mix(in srgb, var(--destroy) 22%, transparent);}
   #textPlan .a{color:var(--muted);}
   #textPlan .t{color:var(--aws-compute);}
   #textPlan .n{color:var(--update);}

@@ -1,0 +1,56 @@
+set shell := ["bash", "-cu"]
+
+default:
+    @just --list
+
+# Build the viewer if needed, start everything and print READY when Atlantis is up
+up:
+    [ -f ../../../dist/index.html ] || just --justfile ../../../justfile --working-directory ../../.. build
+    docker compose up -d --build
+    @until curl -fs -o /dev/null http://localhost:4141/healthz; do sleep 2; done
+    @echo ""
+    @echo "READY: GitLab http://localhost:8929 (root / demo-password-123), Atlantis http://localhost:4141"
+    @echo "Next: just mr-create"
+
+# Open the MR: adds the app (EC2 instance + security group)
+mr-create:
+    docker compose run --rm --build demo mr-create
+
+# Review change 1: delete the legacy bucket
+mr-change-1:
+    docker compose run --rm --build demo mr-change-1
+
+# Review change 2: update the VPC's Env tag (in place)
+mr-change-2:
+    docker compose run --rm --build demo mr-change-2
+
+# Review change 3: add an S3 bucket
+mr-change-3:
+    docker compose run --rm --build demo mr-change-3
+
+# Review change 4: add messaging (SNS topic + SQS queue)
+mr-change-4:
+    docker compose run --rm --build demo mr-change-4
+
+# Show the open MR and its commits
+status:
+    docker compose run --rm --build demo status
+
+# (optional) Comment `atlantis apply` on the open MR
+apply:
+    docker compose run --rm --build demo apply
+
+# (optional) Merge the open MR
+merge:
+    docker compose run --rm --build demo merge
+
+logs service="atlantis":
+    docker compose logs -f {{service}}
+
+# Stop everything, keeping GitLab's data (the next `just up` is quick)
+down:
+    docker compose down
+
+# Stop everything and delete GitLab's data (the next `just up` starts from scratch)
+reset:
+    docker compose down -v

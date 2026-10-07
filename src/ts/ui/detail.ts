@@ -356,6 +356,8 @@ var DETAIL_SECTIONS: DetailSectionDef[] = [
   }},
 
   {key:"hcl", build: function(r: PlanResource, ctx: any){
+    /* the plan's configuration is the new one: for a destroyed resource it would read as if it survived */
+    if (r.action === "delete") return null;
     var model = state.model;
     var hcl = hclFor(r, model && model.cfgByAddr && model.cfgByAddr[cfgKey(r.addr)]);
     if (!hcl) return null;

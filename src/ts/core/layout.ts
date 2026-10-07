@@ -198,13 +198,14 @@ function placeRemaining(ctx: LayoutContext): void {
   });
 }
 
-/* A container kept only to host filtered-out children is noise. */
+/* In changes mode, a structural container (an AZ) left with nothing inside is noise. A container that is
+   itself a resource (a subnet) stays even when empty and unchanged: it is dimmed, not removed. */
 function pruneEmpty(g: LayoutNode, root: LayoutGroup, opts: RenderOptions): boolean {
   if (!g.box) return true;                         /* a tile is always kept */
   g.children = g.children.filter(function(k: LayoutNode){ return pruneEmpty(k, root, opts); });
   if (g === root) return true;
   return g.children.length > 0 ||
-         (g.res && g.res.action !== "no-op") ||
+         !!g.res ||
          opts.mode !== "changes";
 }
 

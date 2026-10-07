@@ -71,6 +71,7 @@
   .seg.icons > *:hover{color:var(--ink); background:var(--surface-3);}
   .btn:hover{filter:brightness(1.06);}
   .btn-primary{background:var(--aws-net); border-color:transparent; color:#fff;}
+  .viewer-only #loadBtn, .viewer-only #sampleBtn, .viewer-only #sampleMenu{display:none;}
   .btn-load{
     gap:7px;
     background:color-mix(in srgb, var(--aws-net) 9%, var(--surface-2));

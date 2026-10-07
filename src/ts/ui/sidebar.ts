@@ -1,7 +1,7 @@
 import { $, html, raw, type SafeHtml } from "../core/util.js";
 import { REG, CAT, CAT_LABEL } from "../providers/registry.js";
 import { schemaFit } from "../core/schema.js";
-import { state, onRender, setMode } from "../core/state.js";
+import { state, onRender, setMode, onSelect } from "../core/state.js";
 import { ACTION_COLOR, render, select, icoSvg, changedKeys } from "./diagram.js";
 
 function renderSidebar(){
@@ -82,9 +82,22 @@ function panelChanges(): void {
       render();
     });
     a.addEventListener("click", function(){ select(r.addr); });
+    a.dataset.addr = r.addr;
+    a.classList.toggle("sel", state.selected === r.addr);
     list.appendChild(a);
   });
 }
+
+/* highlight the selected change, whichever view the selection came from */
+onSelect(function(){
+  var list = $("chgList");
+  if (!list) return;
+  Array.prototype.slice.call(list.querySelectorAll(".chg")).forEach(function(el: HTMLElement){
+    var on = !!state.selected && el.dataset.addr === state.selected;
+    el.classList.toggle("sel", on);
+    if (on && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
+  });
+});
 
 /* The list below names every change, so a proportional bar would only
    restate it. The header carries the totals. */
@@ -136,6 +149,9 @@ function panelPlanSummary(): void {
   if (metaEl) metaEl.textContent = outs ? (outs + " outputs") : "";
 }
 
+/* which legend groups are open, kept across re-renders */
+var covOpen: Record<string, boolean> = {};
+
 function panelCoverage(){
   var model = state.model;
   if (!model) return;
@@ -162,9 +178,9 @@ function panelCoverage(){
   if (bar) {
     bar.innerHTML = "";
     var segs: [number, string, string][] = [
-      [total - missing, "var(--create)", "drawn"],
-      [hiddenAssoc, "var(--aws-net)", "associations hidden"],
-      [hiddenUnsup, "var(--warn)", "type not implemented, hidden"]
+      [total - missing, "var(--create)", "resources drawn as tiles"],
+      [hiddenAssoc, "var(--aws-net)", "association resources hidden (open the list below)"],
+      [hiddenUnsup, "var(--warn)", "resources of a type with no tile yet, hidden (open the list below)"]
     ];
     segs.forEach(function(seg){
       if (!seg[0] || !total) return;
@@ -178,11 +194,60 @@ function panelCoverage(){
     });
   }
 
-  var parts: any[] = [];
-  if (hiddenUnsup) parts.push(html`<span><i class="sw sw-warn"></i>type not implemented, hidden <b>${hiddenUnsup}</b></span>`);
-  if (hiddenAssoc) parts.push(html`<span><i class="sw sw-net"></i>associations hidden <b>${hiddenAssoc}</b></span>`);
+  /* what is in each group, so the numbers can be opened up and checked */
+  var isHiddenAssoc = function(r: any){ return !!hiddenAssoc && r.supported && r.kind === "assoc"; };
+  var isHiddenUnsup = function(r: any){ return !!hiddenUnsup && !r.supported; };
+  var drawn = model.resources.filter(function(r: any){ return !isHiddenAssoc(r) && !isHiddenUnsup(r); });
+  var groups: {key: string; sw: string; label: string; note: string; items: any[]; goto: boolean; action?: string}[] = [
+    {key: "drawn", sw: "sw-ok", label: "drawn as tiles", note: "", items: drawn, goto: true}
+  ];
+  if (hiddenAssoc) groups.push({key: "assoc", sw: "sw-net", label: "association resources, hidden",
+    note: "These only link two other resources (a route table to a subnet, say), so they are off by default.",
+    items: model.resources.filter(isHiddenAssoc), goto: false, action: "Show them"});
+  if (hiddenUnsup) groups.push({key: "unsup", sw: "sw-warn", label: "type not implemented, hidden",
+    note: "No tile for these types yet. \u201cShow unsupported as tiles\u201d draws them generically.",
+    items: model.resources.filter(isHiddenUnsup), goto: false, action: "Show them"});
+
   var leg = $("covLegend");
-  if (leg) leg.innerHTML = html`${parts}`.toString();
+  if (!leg) return;
+  leg.innerHTML = groups.map(function(g){
+    return html`
+      <details class="cov-grp" data-grp="${g.key}" ${covOpen[g.key] ? raw("open") : ""}>
+        <summary>
+          <i class="sw ${g.sw}"></i><span>${g.label}</span><b>${g.items.length}</b>
+          <svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        ${g.note ? html`<div class="cov-note">${g.note}</div>` : ""}
+        ${g.action ? html`<button class="cov-act" data-act="${g.key}">${g.action}</button>` : ""}
+        <ul class="cov-list">
+          ${g.items.map(function(r: any){
+            return g.goto ? html`<li data-goto="${r.addr}">${r.addr}</li>` : html`<li>${r.addr}</li>`;
+          })}
+        </ul>
+      </details>
+    `.toString();
+  }).join("");
+
+  Array.prototype.slice.call(leg.querySelectorAll("details.cov-grp")).forEach(function(d: HTMLDetailsElement){
+    d.addEventListener("toggle", function(){ covOpen[d.dataset.grp || ""] = d.open; });
+  });
+  Array.prototype.slice.call(leg.querySelectorAll("li[data-goto]")).forEach(function(li: HTMLElement){
+    li.addEventListener("click", function(){ if (li.dataset.goto) select(li.dataset.goto); });
+  });
+  Array.prototype.slice.call(leg.querySelectorAll("button.cov-act")).forEach(function(b: HTMLElement){
+    b.addEventListener("click", function(){
+      if (b.dataset.act === "assoc"){
+        opts.showAssoc = true;
+        var cb = $("optAssoc") as HTMLInputElement | null;
+        if (cb) cb.checked = true;
+      } else {
+        opts.showUnsup = true;
+        var cu = $("optUnsup") as HTMLInputElement | null;
+        if (cu) cu.checked = true;
+      }
+      render();
+    });
+  });
 }
 
 function setTypes(types: string[], on: boolean): void {

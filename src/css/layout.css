@@ -53,6 +53,7 @@
     text-decoration:none;
   }
   .chg:hover{background:var(--surface-2);}
+  .chg.sel{background:color-mix(in srgb, var(--ink) 8%, transparent);}
   .chg .a{
     grid-column:1; font-family:"Archivo",sans-serif; font-size:9px; font-weight:700;
     letter-spacing:.07em; text-transform:uppercase; padding:2px 6px; border-radius:999px;
@@ -95,10 +96,32 @@
   }
   .statbar span + span{box-shadow:inset 1px 0 0 rgba(255,255,255,.35);}
   .statbar span.tiny{font-size:0;}
-  .cov-legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12px;}
+  .cov-legend{display:flex; flex-direction:column; gap:2px; font-size:12px;}
   .cov-legend span{display:inline-flex; align-items:center; gap:6px; color:var(--muted);}
   .cov-legend b{color:var(--ink); font-weight:600; font-family:"IBM Plex Mono",monospace;}
+  .cov-grp > summary{
+    display:flex; align-items:center; gap:6px; cursor:pointer; list-style:none;
+    padding:3px 0; color:var(--muted);
+  }
+  .cov-grp > summary::-webkit-details-marker{display:none;}
+  .cov-grp > summary:hover{color:var(--ink);}
+  .cov-grp .chev{width:9px; height:9px; flex:none; margin-left:auto; opacity:.7; transition:transform .18s ease;}
+  .cov-grp[open] .chev{transform:rotate(90deg);}
+  .cov-note{font-size:11.5px; color:var(--faint); line-height:1.45; padding:2px 0 4px 14px;}
+  .cov-act{
+    margin:2px 0 4px 14px; font-size:11.5px; color:var(--aws-net); background:none; border:1px solid var(--line);
+    border-radius:6px; padding:2px 8px; cursor:pointer;
+  }
+  .cov-act:hover{border-color:var(--aws-net);}
+  .cov-list{
+    list-style:none; margin:2px 0 6px 14px; padding:0; max-height:170px; overflow-y:auto;
+    font-family:"IBM Plex Mono",monospace; font-size:11px; line-height:1.7; color:var(--body);
+    overflow-wrap:anywhere;
+  }
+  .cov-list li[data-goto]{cursor:pointer;}
+  .cov-list li[data-goto]:hover{color:var(--aws-net); text-decoration:underline; text-underline-offset:2px;}
   .sw{width:8px; height:8px; border-radius:2px; flex:none;}
+  .sw.sw-ok{background:var(--create);}
   .sw.sw-warn{background:var(--warn);}
   .sw.sw-net{background:var(--aws-net);}
 

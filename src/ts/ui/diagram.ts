@@ -85,12 +85,14 @@ function render(): void {
   var S: any = state.model.summary || {};
   var hasEdits = (S.update || 0) + (S.replace || 0) + (S["delete"] || 0) > 0;
   state.model.hasEdits = hasEdits;
+  /* creates count here too: dim what the plan leaves alone even when it only adds things */
+  var hasChanges = hasEdits || (S.create || 0) > 0;
 
   setTileHeight(tileHeight(state.opts.mode, hasEdits));
   if (!canvas) canvas = $("canvas");
   if (canvas) {
     canvas.classList.toggle("mode-changes", state.opts.mode === "changes");
-    canvas.classList.toggle("emphasise", state.opts.mode === "changes" && hasEdits);
+    canvas.classList.toggle("emphasise", state.opts.mode === "changes" && hasChanges);
     canvas.classList.toggle("pulse", !!state.opts.pulse && state.opts.mode === "changes" && hasEdits);
     canvas.classList.toggle("hide-llm", !state.opts.showLlm);
   }

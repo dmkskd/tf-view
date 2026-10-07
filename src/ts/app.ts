@@ -132,8 +132,11 @@ if (fileInput) fileInput.addEventListener("change", function(e: Event){
    the drag exits over a child element instead of exactly at <html>. Track
    nesting depth instead, and reset on drop/dragend as a fail-safe. */
 var dragDepth = 0;
+/* A report injected with its plan (window.__TFVIEW_VIEWER_ONLY) only shows that plan: no loading, no samples. */
+function viewerOnly(): boolean { return !!(window as any).__TFVIEW_VIEWER_ONLY; }
 document.addEventListener("dragenter", function(e: Event){
-  e.preventDefault(); dragDepth++; document.body.classList.add("dragging");
+  e.preventDefault(); if (viewerOnly()) return;
+  dragDepth++; document.body.classList.add("dragging");
 });
 document.addEventListener("dragover", function(e: Event){ e.preventDefault(); });
 document.addEventListener("dragleave", function(e: Event){
@@ -145,6 +148,7 @@ document.addEventListener("dragleave", function(e: Event){
   document.addEventListener(ev, function(e: Event){ e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging"); });
 });
 document.addEventListener("drop", function(e: DragEvent){
+  if (viewerOnly()) return;
   var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (!file) return;
   var fr = new FileReader();
@@ -418,6 +422,7 @@ document.addEventListener("keydown", function(e: KeyboardEvent){ if (e.key === "
 if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSample(DEFAULT_SAMPLE_ID); });
 
 function boot(): void {
+  if (viewerOnly()) document.body.classList.add("viewer-only");
   restoreSchema();
   var has = !!sampleText(DEFAULT_SAMPLE_ID);
   if (sampleBtn) sampleBtn.disabled = !has;

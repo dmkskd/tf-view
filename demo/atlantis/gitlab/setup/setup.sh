@@ -47,10 +47,15 @@ if api "$GL/api/v4/projects/root%2Fdemo-infra" >/dev/null 2>&1; then
   fi
 else
   PID=$(api -X POST "$GL/api/v4/projects" -d name=demo-infra -d visibility=private | jq -r .id)
-  api -X POST "$GL/api/v4/projects/$PID/hooks" \
-    -d url=http://localhost:4141/events -d token="$SECRET" \
-    -d merge_requests_events=true -d note_events=true -d push_events=true \
-    -d enable_ssl_verification=false >/dev/null
+  # the web process can take a moment to pick up the allow-local-requests setting (422 until then)
+  for i in 1 2 3 4 5 6; do
+    api -X POST "$GL/api/v4/projects/$PID/hooks" \
+      -d url=http://localhost:4141/events -d token="$SECRET" \
+      -d merge_requests_events=true -d note_events=true -d push_events=true \
+      -d enable_ssl_verification=false >/dev/null && break
+    [ "$i" = 6 ] && { echo "webhook creation failed"; exit 1; }
+    sleep 10
+  done
   W=$(mktemp -d); cp -R /seed/infra /seed/atlantis.yaml "$W"/
   ( cd "$W" && git init -q -b main && git add -A \
     && git -c user.name=demo -c user.email=demo@example.com commit -qm "initial infra" \

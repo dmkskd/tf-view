@@ -48,7 +48,7 @@ var ACTION_REASON: Record<string, string> = {
   delete_because_wrong_repetition:
     "Destroyed: count or for_each no longer produces this instance.",
   delete_because_count_index:
-    "Destroyed: its count index is outside the new range.",
+    "Destroyed: delete_because_count_index",
   delete_because_each_key:
     "Destroyed: its for_each key is no longer present.",
   read_because_config_unknown:

@@ -3,9 +3,9 @@ import { escapeHtml, $ } from "../core/util.js";
 import { actionOf } from "../core/parser.js";
 import { isSensitive, sameVal, matchRules } from "../core/diff.js";
 import { hclValue } from "../core/hcl.js";
-import { changedKeys } from "./diagram.js";
+import { changedKeys, select } from "./diagram.js";
 import { attrKind } from "../core/schema.js";
-import { state, onRender } from "../core/state.js";
+import { state, onRender, onSelect } from "../core/state.js";
 import type { PlanModel, PlanResource, RenderOptions, DriftEntry, CheckEntry } from "../types/index.js";
 
 /* ------------------------------------------------------------------
@@ -114,6 +114,7 @@ function documentBody(): string {
       return (r.unknown as any)[k] === true && keys.indexOf(k) < 0;
     }).sort();
 
+    var blockStart = out.length;
     out.push('<span class="c"># ' + escapeHtml(r.addr) +
              (r.action === "delete" ? '   <span class="del">will not exist after apply</span>' : '') +
              '</span>');
@@ -128,6 +129,7 @@ function documentBody(): string {
     }
     out.push('<span class="k">resource</span> <span class="t">"' + escapeHtml(r.type) +
              '"</span> <span class="s">"' + escapeHtml(r.name) + '"</span> {');
+    var headEnd = out.length;
 
     var pad = keys.concat(unknown).reduce(function(n: number, k: string){
       return Math.max(n, k.length);
@@ -158,12 +160,30 @@ function documentBody(): string {
       out.push('    <span class="c"># no values are known yet</span>');
     }
     out.push("}");
-    out.push("");
+    var seg = out.splice(blockStart);
+    out.push(tvBlock(r.addr, true, seg.slice(0, headEnd - blockStart), seg.slice(headEnd - blockStart),
+                     attrLabel(keys.length + unknown.length)));
   });
 
   out = out.concat(tvOutputs(false));
   out = out.concat(tvChecks());
   return out.join("\n");
+}
+
+/* A resource folds to its header (the # comments and the `resource "type" "name"` line); the attributes and the
+   closing brace are the body. It starts open, as terraform prints it; the chevron in the gutter folds it. The
+   folded hint is drawn by CSS from data-label, so copying the text never picks it up. */
+function attrLabel(n: number): string {
+  return n === 0 ? "no values" : n + (n === 1 ? " attribute" : " attributes");
+}
+
+/* selectable blocks carry their resource address (a click selects it); others only an id, to remember their fold */
+function tvBlock(id: string, selectable: boolean, head: string[], body: string[], label: string): string {
+  return '<div class="tv-res" ' + (selectable ? 'data-addr="' : 'data-key="') + escapeHtml(id) + '">' +
+         '<span class="tv-chev" aria-hidden="true"></span>' +
+         head.join("\n") +
+         '<span class="tv-more" data-label="' + escapeHtml(label) + '"></span>' +
+         '<span class="tv-body">\n' + body.join("\n") + '</span></div>';
 }
 
 function tvHead(title?: string, count?: number): string[] { return []; }        /* headings are the <summary> now */
@@ -197,19 +217,23 @@ function tvDrift(): string[] {
     var keys = Object.keys(before).concat(Object.keys(after)).filter(function(k: string, i: number, a: string[]){
       return a.indexOf(k) === i && !sameVal(before[k], after[k]);
     }).sort();
-    out.push('  <span class="c"># ' + escapeHtml(x.address) + ' has changed</span>');
-    out.push('  <span class="upd">~</span> <span class="k">resource</span> <span class="t">"' +
-             escapeHtml(x.type) + '"</span> <span class="s">"' + escapeHtml(x.name) + '"</span> {');
+    var dHead = [
+      '  <span class="c"># ' + escapeHtml(x.address) + ' has changed</span>',
+      '  <span class="upd">~</span> <span class="k">resource</span> <span class="t">"' +
+        escapeHtml(x.type) + '"</span> <span class="s">"' + escapeHtml(x.name) + '"</span> {'
+    ];
+    var dBody: string[] = [];
     var pad = keys.reduce(function(n: number, k: string){ return Math.max(n, k.length); }, 0);
     keys.forEach(function(k: string){
-      out.push('      <span class="upd">~</span> <span class="a">' + escapeHtml(k) + '</span>' +
+      dBody.push('      <span class="upd">~</span> <span class="a">' + escapeHtml(k) + '</span>' +
                new Array(pad - k.length + 1).join(" ") + ' = ' +
                '<span class="old">' + escapeHtml(tvLit(before[k])) + '</span> -> ' +
                '<span class="new">' + escapeHtml(tvLit(after[k])) + '</span>');
     });
-    out.push("    }");
-    out.push("");
+    dBody.push("    }");
+    out.push(tvBlock(x.address, true, dHead, dBody, attrLabel(keys.length)));
   });
+  out.push("");
   return out;
 }
 
@@ -221,11 +245,14 @@ function tvChecks(): string[] {
   var out = tvHead("Checks", c.length);
   c.forEach(function(x: CheckEntry){
     var cls = x.status === "fail" || x.status === "error" ? "del" : "add";
-    out.push('  <span class="' + cls + '">' + escapeHtml(x.status || "?") + '</span>  ' +
-             escapeHtml(x.name));
-    x.problems.forEach(function(msg: string){
-      out.push('      <span class="c">' + escapeHtml(msg) + '</span>');
+    var cHead = '  <span class="' + cls + '">' + escapeHtml(x.status || "?") + '</span>  ' + escapeHtml(x.name);
+    var cBody = x.problems.map(function(msg: string){
+      return '      <span class="c">' + escapeHtml(msg) + '</span>';
     });
+    /* only a check with problems has anything to fold */
+    out.push(cBody.length
+      ? tvBlock("check:" + x.name, false, [cHead], cBody, cBody.length + (cBody.length === 1 ? " problem" : " problems"))
+      : cHead);
   });
   out.push("");
   return out;
@@ -286,18 +313,18 @@ function textSections(): TextSection[] {
   }
 
   if (opts.mode === "changes"){
-    var d = tvDrift();
-    if (d.length) out.push({key:"drift", label:"Drift",
-      count:model.driftDetails.length,
-      body:d.join("\n").replace(/\n+$/, ""),
-      note:"changed outside terraform since the last apply"});
-
     out.push({key:"plan", label:"Planned changes",
       count:model.resources.filter(function(r: PlanResource){
         return r.action !== "no-op" && r.action !== "read" &&
                (!opts.action || r.action === opts.action);
       }).length,
       body:changesBody(), note:"what terraform will do"});
+
+    var d = tvDrift();
+    if (d.length) out.push({key:"drift", label:"Drift",
+      count:model.driftDetails.length,
+      body:d.join("\n").replace(/\n+$/, ""),
+      note:"changed outside terraform since the last apply"});
 
     var oc = tvOutputs(true);
     if (oc.length) out.push({key:"outputs", label:"Changes to outputs",
@@ -308,18 +335,18 @@ function textSections(): TextSection[] {
       count:Object.keys(model.variables).length,
       body:v.join("\n").replace(/\n+$/, ""), note:"inputs used for this plan"});
 
-    var dd = tvDrift();
-    if (dd.length) out.push({key:"drift", label:"Drift",
-      count:model.driftDetails.length,
-      body:dd.join("\n").replace(/\n+$/, ""),
-      note:"changed outside terraform since the last apply"});
-
     out.push({key:"plan", label:"Planned changes",
       count:model.resources.filter(function(r: PlanResource){
         return r.action !== "no-op" && r.action !== "read" &&
                (!opts.action || r.action === opts.action);
       }).length,
       body:changesBody(), note:"what terraform will do"});
+
+    var dd = tvDrift();
+    if (dd.length) out.push({key:"drift", label:"Drift",
+      count:model.driftDetails.length,
+      body:dd.join("\n").replace(/\n+$/, ""),
+      note:"changed outside terraform since the last apply"});
 
     out.push({key:"resources", label:"Resources", count:null,
       body:documentBody(), note:"as they will be after apply"});
@@ -389,6 +416,7 @@ function changesBody(): string {
   out.push("");
 
   list.forEach(function(r: PlanResource){
+    var blockStart = out.length;
     var head = TEXT_HEAD[r.action] || ["~", r.action, "upd"];
     var cls = head[2], sym = head[0];
     out.push('  <span class="c"># ' + escapeHtml(r.addr) + ' ' + head[1] + '</span>');
@@ -402,10 +430,13 @@ function changesBody(): string {
       out.push('  <span class="c"># [</span><span class="llm-risk ' + irCls + '">' + escapeHtml(ir) + irrev + '</span><span class="c">]' + escapeHtml(badge) + note + '</span>');
     }
 
-    var open = '<span class="' + cls + '">' + sym + '</span> ' +
+    /* the header line gets a band in the action's colour, as Atlantis does with its diff blocks */
+    var open = '<span class="hd hd-' + escapeHtml(r.action) + '">' +
+               '<span class="' + cls + '">' + sym + '</span> ' +
                '<span class="k">resource</span> <span class="t">"' + escapeHtml(r.type) +
-               '"</span> <span class="s">"' + escapeHtml(r.name) + '"</span> {';
+               '"</span> <span class="s">"' + escapeHtml(r.name) + '"</span> {</span>';
     out.push(sym.length === 3 ? open : "  " + open);
+    var headEnd = out.length;
 
     var before: Record<string, any> = r.before || {}, after: Record<string, any> = r.attrs || {};
     var keys: string[], mode: "new" | "old" | "diff";
@@ -451,7 +482,9 @@ function changesBody(): string {
 
     if (!keys.length) out.push('      <span class="c"># no attribute values are known yet</span>');
     out.push("    }");
-    out.push("");
+    /* one element per resource, so a click can select it, the selection can highlight it and it can fold */
+    var seg = out.splice(blockStart);
+    out.push(tvBlock(r.addr, true, seg.slice(0, headEnd - blockStart), seg.slice(headEnd - blockStart), attrLabel(keys.length)));
   });
 
   var S: any = model.summary || {};
@@ -495,6 +528,28 @@ function syncTextAll(): void {
   btn.dataset.want = anyClosed ? "open" : "close";
 }
 
+var foldedBlocks: Record<string, boolean> = {};
+
+function blockKey(b: HTMLElement): string {
+  var d = b.closest("details[data-tsec]") as HTMLElement | null;
+  return (d && d.dataset.tsec ? d.dataset.tsec : "") + "|" + (b.dataset.addr || b.dataset.key);
+}
+
+function setBlockFolded(b: HTMLElement, folded: boolean): void {
+  b.classList.toggle("collapsed", folded);
+  if (folded) foldedBlocks[blockKey(b)] = true; else delete foldedBlocks[blockKey(b)];
+}
+
+/* the section's own button: folds every resource in it, or opens them all again */
+function syncSectionFold(d: HTMLElement): void {
+  var btn = d.querySelector(".tsec-all") as HTMLElement | null;
+  if (!btn) return;
+  var blocks = Array.prototype.slice.call(d.querySelectorAll(".tv-res")) as HTMLElement[];
+  var anyOpen = blocks.some(function(b){ return !b.classList.contains("collapsed"); });
+  btn.textContent = anyOpen ? "Collapse all" : "Expand all";
+  btn.dataset.fold = anyOpen ? "1" : "0";
+}
+
 function renderText(): void {
   var model = state.model, opts = state.opts;
   var changesOnly = opts.mode === "changes";
@@ -514,11 +569,22 @@ function renderText(): void {
                      (s.count !== null && s.count !== undefined
                         ? '<span class="n">' + s.count + '</span>' : '') +
                      (s.note ? '<span class="note">' + escapeHtml(s.note) + '</span>' : '') +
+                     (s.body.indexOf('class="tv-res"') >= 0
+                        ? '<button type="button" class="tsec-all"></button>' : '') +
                    '</summary>' +
                    '<pre>' + s.body + '</pre>' +
                  '</details>';
         }).join("")
       : '<span class="c">This plan changes nothing.</span>';
+
+    /* blocks the reader folded stay folded across re-renders (filter changes redraw the text) */
+    Array.prototype.slice.call(textPlanEl.querySelectorAll("details[data-tsec]"))
+      .forEach(function(d: HTMLDetailsElement){
+        Array.prototype.slice.call(d.querySelectorAll(".tv-res")).forEach(function(b: HTMLElement){
+          if (foldedBlocks[blockKey(b)]) b.classList.add("collapsed");
+        });
+        syncSectionFold(d);
+      });
 
     Array.prototype.slice.call(textPlanEl.querySelectorAll("details[data-tsec]"))
       .forEach(function(d: HTMLDetailsElement){
@@ -530,6 +596,7 @@ function renderText(): void {
       });
   }
   syncTextAll();
+  applyTextSelection(false);
 
   var n = model ? model.resources.filter(function(r: PlanResource){
     if (opts.action && r.action !== opts.action) return false;
@@ -544,6 +611,59 @@ function renderText(): void {
       (opts.action ? "  \u00b7  " + opts.action + " only" : "");
   }
 }
+
+/* The text view is one of three views of the same selection (diagram, list, text). */
+function applyTextSelection(scroll: boolean): void {
+  var plan = $("textPlan");
+  if (!plan) return;
+  var picked: HTMLElement | null = null;
+  Array.prototype.slice.call(plan.querySelectorAll(".tv-res")).forEach(function(el: HTMLElement){
+    var on = !!state.selected && el.dataset.addr === state.selected;
+    el.classList.toggle("sel", on);
+    if (on && !picked) {
+      picked = el;
+      if (scroll && el.classList.contains("collapsed")) {   /* never leave the selection folded away */
+        setBlockFolded(el, false);
+        var d = el.closest("details[data-tsec]") as HTMLElement | null;
+        if (d) syncSectionFold(d);
+      }
+    }
+  });
+  if (picked && scroll && typeof (picked as HTMLElement).scrollIntoView === "function") {
+    (picked as HTMLElement).scrollIntoView({ block: "nearest" });
+  }
+}
+onSelect(function(){ applyTextSelection(true); });
+
+var textPlanHost = $("textPlan");
+if (textPlanHost) textPlanHost.addEventListener("click", function(e: MouseEvent){
+  var t = e.target as HTMLElement;
+  var all = t.closest ? t.closest(".tsec-all") as HTMLElement | null : null;
+  if (all) {                                    /* the section's fold-all button (inside <summary>: keep it from toggling) */
+    e.preventDefault(); e.stopPropagation();
+    var sec = all.closest("details[data-tsec]") as HTMLElement | null;
+    if (sec) {
+      var fold = all.dataset.fold === "1";
+      Array.prototype.slice.call(sec.querySelectorAll(".tv-res")).forEach(function(b: HTMLElement){ setBlockFolded(b, fold); });
+      syncSectionFold(sec);
+    }
+    return;
+  }
+  var chev = t.closest ? t.closest(".tv-chev") as HTMLElement | null : null;
+  if (chev) {                                   /* fold or open this block; not a selection */
+    var blk = chev.closest(".tv-res") as HTMLElement | null;
+    if (blk) {
+      setBlockFolded(blk, !blk.classList.contains("collapsed"));
+      var dd = blk.closest("details[data-tsec]") as HTMLElement | null;
+      if (dd) syncSectionFold(dd);
+    }
+    return;
+  }
+  var sel = window.getSelection && window.getSelection();
+  if (sel && !sel.isCollapsed) return;           /* the click ended a text selection (copying), not a pick */
+  var hit = (e.target as HTMLElement).closest ? (e.target as HTMLElement).closest(".tv-res") as HTMLElement | null : null;
+  if (hit && hit.dataset.addr) select(hit.dataset.addr);
+});
 
 var tvAll = $("tvAll");
 if (tvAll) {

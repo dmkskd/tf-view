@@ -21,9 +21,26 @@ workflows:
             GL=http://localhost:8929/api/v4/projects/${BASE_REPO_OWNER}%2F${BASE_REPO_NAME}
             AUTH="PRIVATE-TOKEN: ${ATLANTIS_GITLAB_TOKEN}"
             up=$(curl -fsS -H "$AUTH" -F "file=@/reports/$name" "$GL/uploads" | jq -r .markdown)
+            # the commit that triggered this plan, quoted at the top of the comment
+            chg=$(git -C "$DIR" log -1 --format=%B "$HEAD_COMMIT" 2>/dev/null | sed 's/^/> /' || true)
+            # Optional screenshot of the plan (needs Chromium in the image; PLAN_IMAGE=off disables it)
+            shot=""
+            if [ "${PLAN_IMAGE:-on}" != off ] && command -v chromium >/dev/null; then
+              png="/reports/${name%.html}.png"
+              chromium --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars \
+                --window-size=1400,900 --virtual-time-budget=15000 --screenshot="$png" "file:///reports/$name" >/dev/null 2>&1 || true
+              if [ -s "$png" ]; then
+                img=$(curl -fsS -H "$AUTH" -F "file=@$png" "$GL/uploads" | jq -r .url)
+                shot="[![Visual plan](${img})](${REPORTS_URL}/${name})"
+              fi
+            fi
             curl -fsS -H "$AUTH" -X POST "$GL/merge_requests/${PULL_NUM}/notes" \
               --data-urlencode "body=### Visual plan (${PROJECT_NAME:-default})
+            ${chg}
+
             **[Open the visual plan in a new tab](${REPORTS_URL}/${name})**
+
+            ${shot}
 
             Archived copy stored in GitLab (downloads, GitLab never renders HTML): ${up}" >/dev/null
             echo "Visual plan: ${REPORTS_URL}/${name}"
