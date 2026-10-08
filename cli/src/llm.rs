@@ -566,6 +566,7 @@ pub async fn run_llm_analysis(
     resources: &[serde_json::Value],
     scope: ReviewScope,
     depth: ReviewDepth,
+    temperature: Option<f64>,
 ) -> Result<(LlmAnalysis, ExecutionMetrics)> {
     if resources.is_empty() {
         return Ok((
@@ -639,7 +640,12 @@ pub async fn run_llm_analysis(
     let start_time = std::time::Instant::now();
 
     // First attempt: Request JSON mode via ChatOptions
-    let json_options = ChatOptions::default().with_response_format(ChatResponseFormat::JsonMode);
+    // Options for every call to the model; JSON mode is added only to the first
+    let mut base_options = ChatOptions::default();
+    if let Some(t) = temperature {
+        base_options = base_options.with_temperature(t);
+    }
+    let json_options = base_options.clone().with_response_format(ChatResponseFormat::JsonMode);
     let exec_res = client.exec_chat(model, chat_req.clone(), Some(&json_options)).await;
 
     // Fallback: If provider rejects JsonMode, retry without options ONLY if the error indicates unsupported format.
@@ -658,7 +664,7 @@ pub async fn run_llm_analysis(
             if is_format_unsupported {
                 eprintln!("==> [tfview] Notice: Provider or model does not support JsonMode, retrying with standard prompt format...");
                 client
-                    .exec_chat(model, chat_req.clone(), None)
+                    .exec_chat(model, chat_req.clone(), Some(&base_options))
                     .await
                     .with_context(|| format!("Failed calling LLM model '{}' via genai after JsonMode fallback: {}", model, err_msg))?
             } else {
@@ -699,7 +705,7 @@ pub async fn run_llm_analysis(
             ]);
 
             let retry_resp = client
-                .exec_chat(model, retry_req, None)
+                .exec_chat(model, retry_req, Some(&base_options))
                 .await
                 .with_context(|| "Failed executing LLM retry request.")?;
 

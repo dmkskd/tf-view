@@ -9,6 +9,7 @@ use std::process::Command;
 use tempfile::Builder;
 
 mod llm;
+mod redact;
 use llm::*;
 
 // Embed the single self-contained HTML copied into OUT_DIR by build.rs
@@ -49,8 +50,31 @@ enum Commands {
     Explain(ExplainArgs),
 }
 
+/// How the report is written; shared by every command that writes one.
+#[derive(Args, Debug, Clone, Default)]
+struct ReportArgs {
+    /// Keep sensitive values in the report (by default they are replaced with "(sensitive)")
+    #[arg(long)]
+    no_redact: bool,
+
+    /// Hide the Load and Samples buttons: the report shows only this plan
+    #[arg(long)]
+    viewer_only: bool,
+
+    /// Open the report with "Show changes" on
+    #[arg(long)]
+    show_changes: bool,
+
+    /// Title shown in the report (default: the plan file name)
+    #[arg(long)]
+    label: Option<String>,
+}
+
 #[derive(Args, Debug)]
 struct PlanArgs {
+    #[command(flatten)]
+    report: ReportArgs,
+
     /// Save the self-contained HTML report to a file instead of a temporary browser preview
     #[arg(short, long, value_name = "OUTPUT_HTML")]
     output: Option<PathBuf>,
@@ -74,6 +98,9 @@ struct PlanArgs {
 
 #[derive(Args, Debug)]
 struct OpenArgs {
+    #[command(flatten)]
+    report: ReportArgs,
+
     /// Path to a Terraform JSON plan file (use '-' for stdin). If omitted with piped input, reads stdin.
     #[arg(value_name = "PLAN_JSON")]
     file: Option<PathBuf>,
@@ -89,6 +116,9 @@ struct OpenArgs {
 
 #[derive(Args, Debug)]
 struct ExplainArgs {
+    #[command(flatten)]
+    report: ReportArgs,
+
     /// Path to a Terraform JSON plan file (use '-' for stdin). If omitted, generates an ephemeral plan.
     #[arg(value_name = "PLAN_JSON")]
     file: Option<PathBuf>,
@@ -109,6 +139,11 @@ struct ExplainArgs {
     /// Review depth: 'standard' (operational risk triage) or 'expert' (Well-Architected audit)
     #[arg(long, value_enum, default_value = "standard")]
     depth: ReviewDepth,
+
+    /// Sampling temperature, 0 to 2 (lower is steadier: the same plan gets the same rating more often).
+    /// Can also be set via the TFVIEW_TEMPERATURE environment variable. Default: the provider's.
+    #[arg(long, env = "TFVIEW_TEMPERATURE", value_parser = parse_temperature)]
+    temperature: Option<f64>,
 
     /// Optional custom LLM endpoint URL (e.g. http://localhost:11434).
     /// Can also be set via TFVIEW_ENDPOINT or OLLAMA_HOST.
@@ -147,6 +182,15 @@ struct ExplainArgs {
     /// Pass extra arguments to 'terraform plan' after '--' if generating an ephemeral plan
     #[arg(last = true)]
     terraform_args: Vec<String>,
+}
+
+fn parse_temperature(s: &str) -> Result<f64, String> {
+    let t: f64 = s.trim().parse().map_err(|_| format!("'{s}' is not a number"))?;
+    if (0.0..=2.0).contains(&t) {
+        Ok(t)
+    } else {
+        Err(format!("{t} is outside 0 to 2"))
+    }
 }
 
 /// Validate that user-supplied extra arguments to 'terraform plan' do not attempt
@@ -246,6 +290,17 @@ fn fill_json_block(html: &str, id: &str, json: &str) -> Option<String> {
 /// would block an added inline script. Boot settings go in the `tfview-config`
 /// block.
 pub fn inject_plan(html_template: &str, plan_json: &str, label: &str) -> Result<String> {
+    inject_plan_with(html_template, plan_json, label, false, false)
+}
+
+/// `inject_plan` plus the boot settings that hide the Load/Samples buttons and turn "Show changes" on.
+pub fn inject_plan_with(
+    html_template: &str,
+    plan_json: &str,
+    label: &str,
+    viewer_only: bool,
+    show_changes: bool,
+) -> Result<String> {
     let _: serde_json::Value = serde_json::from_str(plan_json)
         .context("Input is not valid JSON. Ensure input is generated via 'terraform show -json'.")?;
 
@@ -253,9 +308,29 @@ pub fn inject_plan(html_template: &str, plan_json: &str, label: &str) -> Result<
         .or_else(|| fill_json_block(html_template, "embedded-plan", plan_json))
         .context("Template does not contain an id=\"injected-plan\" or id=\"embedded-plan\" data block")?;
 
-    let config = serde_json::json!({ "autoload": true, "label": label }).to_string();
-    fill_json_block(&with_plan, "tfview-config", &config)
+    let mut config = serde_json::json!({ "autoload": true, "label": label });
+    if viewer_only {
+        config["viewerOnly"] = true.into();
+    }
+    if show_changes {
+        config["showChanges"] = true.into();
+    }
+    fill_json_block(&with_plan, "tfview-config", &config.to_string())
         .context("Template does not contain an id=\"tfview-config\" data block; rebuild dist/index.html")
+}
+
+/// Redact (unless asked not to) and embed the plan in the viewer.
+fn render_report(plan_json: &str, default_label: &str, args: &ReportArgs) -> Result<String> {
+    let plan_json = if args.no_redact {
+        plan_json.to_string()
+    } else {
+        let mut plan: serde_json::Value = serde_json::from_str(plan_json)
+            .context("Input is not valid JSON. Ensure input is generated via 'terraform show -json'.")?;
+        redact::redact_plan(&mut plan);
+        plan.to_string()
+    };
+    let label = args.label.as_deref().unwrap_or(default_label);
+    inject_plan_with(HTML_TEMPLATE, &plan_json, label, args.viewer_only, args.show_changes)
 }
 
 /// Render and display (or save) the final self-contained HTML report.
@@ -333,7 +408,7 @@ fn handle_open(args: OpenArgs) -> Result<()> {
         bail!("No plan JSON file provided. Usage: 'tfview open <PLAN_JSON>' or pipe via 'terraform show -json | tfview'");
     };
 
-    let html = inject_plan(HTML_TEMPLATE, &plan_json, &label)?;
+    let html = render_report(&plan_json, &label, &args.report)?;
     present_report(html, args.output, args.no_open)
 }
 
@@ -344,7 +419,7 @@ fn handle_plan(args: PlanArgs) -> Result<()> {
         .context("Failed to create temporary directory for planning")?;
 
     let plan_json = generate_ephemeral_plan(args.offline, args.destroy, &args.terraform_args, tmp_dir.path())?;
-    let html = inject_plan(HTML_TEMPLATE, &plan_json, "terraform plan")?;
+    let html = render_report(&plan_json, "terraform plan", &args.report)?;
     present_report(html, args.output, args.no_open)
 }
 
@@ -417,7 +492,7 @@ async fn handle_explain(args: ExplainArgs) -> Result<()> {
         );
     }
 
-    let (llm_analysis, metrics) = run_llm_analysis(&client, &model, &target_resources, args.scope, args.depth).await?;
+    let (llm_analysis, metrics) = run_llm_analysis(&client, &model, &target_resources, args.scope, args.depth, args.temperature).await?;
 
     if !args.json_stdout {
         print_terminal_summary(&llm_analysis, &metrics, &provider_name, &model, args.scope, args.depth);
@@ -437,7 +512,7 @@ async fn handle_explain(args: ExplainArgs) -> Result<()> {
         return Ok(());
     }
 
-    let html = inject_plan(HTML_TEMPLATE, &enriched_plan_json, &label)?;
+    let html = render_report(&enriched_plan_json, &label, &args.report)?;
     present_report(html, args.output, args.no_open)
 }
 
@@ -445,6 +520,7 @@ async fn handle_explain(args: ExplainArgs) -> Result<()> {
 async fn main() -> Result<()> {
     if env::args().len() == 1 && !io::stdin().is_terminal() {
         return handle_open(OpenArgs {
+            report: ReportArgs::default(),
             file: None,
             output: None,
             no_open: false,
@@ -530,6 +606,62 @@ mod tests {
     fn test_inject_plan_requires_config_block() {
         let old = r#"<html><body><script type="application/json" id="embedded-plan">{}</script></body></html>"#;
         assert!(inject_plan(old, "{}", "x").is_err());
+    }
+
+    #[test]
+    fn test_inject_plan_with_writes_viewer_only_and_show_changes() {
+        let on = inject_plan_with(TEMPLATE, "{}", "x", true, true).unwrap();
+        let cfg = block(&on, "tfview-config");
+        assert_eq!(cfg["viewerOnly"], true);
+        assert_eq!(cfg["showChanges"], true);
+
+        // off: the keys are absent, so the viewer keeps its own defaults
+        let off = block(&inject_plan_with(TEMPLATE, "{}", "x", false, false).unwrap(), "tfview-config");
+        assert!(off.get("viewerOnly").is_none() && off.get("showChanges").is_none());
+    }
+
+    const SECRET_PLAN: &str = r#"{"variables":{"pw":{"value":"hunter2-do-not-leak"}},
+        "configuration":{"root_module":{"variables":{"pw":{"sensitive":true}}}},
+        "resource_changes":[{"address":"aws_db_instance.main","change":{"actions":["create"],"before":null,
+        "after":{"password":"hunter2-do-not-leak","name":"main"},"after_sensitive":{"password":true}}}]}"#;
+
+    #[test]
+    fn test_render_report_redacts_by_default() {
+        let html = render_report(SECRET_PLAN, "x", &ReportArgs::default()).unwrap();
+        assert!(!html.contains("hunter2-do-not-leak"));
+        let plan = block(&html, "injected-plan");
+        assert_eq!(plan["resource_changes"][0]["change"]["after"]["password"], "(sensitive)");
+        assert_eq!(plan["resource_changes"][0]["change"]["after"]["name"], "main");
+    }
+
+    #[test]
+    fn test_render_report_no_redact_keeps_values() {
+        let args = ReportArgs { no_redact: true, ..Default::default() };
+        assert!(render_report(SECRET_PLAN, "x", &args).unwrap().contains("hunter2-do-not-leak"));
+    }
+
+    #[test]
+    fn test_render_report_label_flag_overrides_the_default() {
+        let args = ReportArgs { label: Some("PR #7".into()), ..Default::default() };
+        let html = render_report("{}", "plan.json", &args).unwrap();
+        assert_eq!(block(&html, "tfview-config")["label"], "PR #7");
+        assert_eq!(block(&render_report("{}", "plan.json", &ReportArgs::default()).unwrap(), "tfview-config")["label"], "plan.json");
+    }
+
+    #[test]
+    fn test_render_report_rejects_invalid_json() {
+        assert!(render_report("not json", "x", &ReportArgs::default()).is_err());
+    }
+
+    #[test]
+    fn test_parse_temperature() {
+        assert_eq!(parse_temperature("0"), Ok(0.0));
+        assert_eq!(parse_temperature(" 0.7 "), Ok(0.7));
+        assert_eq!(parse_temperature("2"), Ok(2.0));
+        assert!(parse_temperature("-0.1").is_err());
+        assert!(parse_temperature("2.1").is_err());
+        assert!(parse_temperature("hot").is_err());
+        assert!(parse_temperature("NaN").is_err());
     }
 
     #[test]

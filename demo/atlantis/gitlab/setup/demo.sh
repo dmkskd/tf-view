@@ -5,10 +5,10 @@ set -euo pipefail
 
 usage() { cat <<'U'
 usage: just <command>
-  mr-create     open the MR: adds the app (EC2 instance + security group)
+  mr-create     open the MR: adds the app tier (IAM role, launch template, auto scaling group)
   mr-change-1   review change 1: delete the legacy bucket
-  mr-change-2   review change 2: update the VPC's Env tag (in place)
-  mr-change-3   review change 3: add an S3 bucket
+  mr-change-2   review change 2: change the load balancer health check (in place)
+  mr-change-3   review change 3: add asset storage (S3 bucket + access)
   mr-change-4   review change 4: add messaging (SNS topic + SQS queue)
   status        show the open MR and its commits
   apply         (optional) comment `atlantis apply` on the open MR
@@ -52,14 +52,14 @@ case "$cmd" in
   mr-create)
     IFS='|' read -r msg key val body <<<"$(change_def mr-create)"
     BR="demo-$(date +%s)"
-    set_var "$BR" main "$msg"$'\n\n'"$body" "$key" "$val"
+    set_var "$BR" main "$cmd: $msg"$'\n\n'"$body" "$key" "$val"
     api -X POST "$P/merge_requests" -d source_branch="$BR" -d target_branch=main -d title="$msg" --data-urlencode "description=$body" | jq -r '"MR: " + .web_url'
     echo "Atlantis should comment within ~1 min."
     ;;
   mr-change-1|mr-change-2|mr-change-3|mr-change-4)
     open_mr
     IFS='|' read -r msg key val body <<<"$(change_def "$cmd")"
-    set_var "$BR" "$BR" "$msg"$'\n\n'"$body" "$key" "$val"
+    set_var "$BR" "$BR" "$cmd: $msg"$'\n\n'"$body" "$key" "$val"
     echo "Pushed to $(jq -r .web_url <<<"$mr"): $msg"
     ;;
   status)

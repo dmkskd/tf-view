@@ -15,7 +15,7 @@ services:
     depends_on:
       floci: { condition: service_healthy }
 
-  # One-shot: applies the base stack (network + a legacy bucket) to Floci, once.
+  # One-shot: applies the base platform (network, load balancer, database, a legacy bucket) to Floci, once.
   # Skipped when Floci's state already has resources (e.g. after a PR was applied).
   base:
     image: hashicorp/terraform:1.9
@@ -28,7 +28,14 @@ services:
         cp /seed/main.tf /work
         cd /work
         terraform init -input=false >/dev/null
-        if [ -z "$$(terraform state list)" ]; then terraform apply -auto-approve -input=false; else echo "state not empty, base left as is"; fi
+        if [ -z "$$(terraform state list)" ]; then
+          terraform apply -auto-approve -input=false
+          # take in what the provider reads back after creation (empty tags, computed attributes), so the first
+          # plan reports only changes made outside Terraform on purpose (`just drift`)
+          terraform apply -refresh-only -auto-approve -input=false
+        else
+          echo "state not empty, base left as is"
+        fi
     depends_on:
       bucket: { condition: service_completed_successfully }
     volumes:
@@ -38,7 +45,10 @@ services:
     build:
       context: ..
       dockerfile: github/atlantis/Dockerfile
+      additional_contexts:
+        repo: ../../..                 # the tfview binary is built from cli/ and dist/
       args: { PLAN_IMAGE: "on" }   # "off" skips Chromium: comments get the link only
+    extra_hosts: ["host.docker.internal:host-gateway"]   # reach Ollama on this machine (Linux; Docker Desktop has it)
     depends_on:
       base: { condition: service_completed_successfully }
     ports:
@@ -53,9 +63,18 @@ services:
       ATLANTIS_PORT: "4141"
       GH_TOKEN: ${GH_TOKEN}          # for the gh CLI used by the workflow
       PLAN_IMAGE: "on"
+      # Optional LLM review in the report, off unless TFVIEW_LLM=true. Example for Ollama running on this machine:
+      #   TFVIEW_LLM=true TFVIEW_MODEL=ollama::gpt-oss:20b TFVIEW_ENDPOINT=http://host.docker.internal:11434
+      TFVIEW_LLM: ${TFVIEW_LLM:-false}
+      TFVIEW_MODEL: ${TFVIEW_MODEL:-}
+      TFVIEW_ENDPOINT: ${TFVIEW_ENDPOINT:-}
+      TFVIEW_API_KEY: ${TFVIEW_API_KEY:-}
+      TFVIEW_TEMPERATURE: ${TFVIEW_TEMPERATURE:-0}   # 0 = steadiest: the same plan gets the same rating
       REPORTS_URL: ${REPORTS_URL:?run through just}
     volumes:
       - ./atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro
+      - ./atlantis/report.sh:/opt/tfplanview/report.sh:ro   # read on every plan: edits apply to the next one
+      - ../shared/lib.sh:/opt/tfplanview/lib.sh:ro
       - ../../../dist/index.html:/opt/tfplanview/index.html:ro   # `just build` first (just up does it)
       - ./reports:/reports
 

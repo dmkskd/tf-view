@@ -1,4 +1,9 @@
 #edges{position:absolute; inset:0; pointer-events:none; overflow:visible;}
+/* Flat view stacking: container boxes, then the dependency lines, then the tiles. Without this the lines sit
+   under the boxes that hold the tiles (the layer is first in the document), so they are drawn but never seen. */
+.canvas:not(.iso) .grp{z-index:0;}
+.canvas:not(.iso) #edges{z-index:1;}
+.canvas:not(.iso) .node{z-index:2;}
 
   .grp{
     position:absolute; border-radius:10px; box-sizing:border-box;

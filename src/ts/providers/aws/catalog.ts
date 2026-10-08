@@ -90,6 +90,12 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["name","fifo_queue","visibility_timeout_seconds"]},
   aws_sns_topic:                    {kind:"node", label:"SNS Topic",           icon:"i-sns",    cat:"integ", scope:"region",
                                       preview:["name","fifo_topic"]},
+  aws_sns_topic_subscription:       {kind:"assoc", label:"SNS Subscription",   icon:"i-sns",    cat:"integ",
+                                      preview:["protocol","endpoint"]},
+  aws_sqs_queue_policy:             {kind:"assoc", label:"SQS Queue Policy",   icon:"i-sqs",    cat:"integ",
+                                      preview:["queue_url"]},
+  aws_dynamodb_table:               {kind:"node", label:"DynamoDB Table",      icon:"i-db",     cat:"db",   scope:"region",
+                                      preview:["name","billing_mode","hash_key"]},
   aws_cloudwatch_log_group:         {kind:"node", label:"Log Group",           icon:"i-cw",     cat:"mgmt", scope:"region",
                                       preview:["retention_in_days"]},
 

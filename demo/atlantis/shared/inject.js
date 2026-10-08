@@ -24,11 +24,12 @@ const hasSecret = m => m === true || (!!m && typeof m === 'object' && Object.val
 
 // Removes secret values from a `terraform show -json` plan, keeping its shape so the viewer still
 // works. Covers resource/output changes, planned and prior state, sensitive variables, and the
-// literals written in config for attributes that turned out sensitive. Not covered: secrets that
+// literals written in config for attributes that turned out sensitive, and sensitive variables' defaults. Not covered: secrets that
 // terraform does not mark sensitive.
 function redactPlan(p) {
   const sensKeys = new Map(); // address (module/resource indexes stripped) -> sensitive attribute names
-  const norm = a => a.replace(/\[[^\]]*\]/g, '');
+  // indexes are quoted strings that may contain `]`: ["a]b"]
+  const norm = a => a.replace(/\[(?:"(?:[^"\\]|\\.)*"|[^\]"])*\]/g, '');
 
   for (const rc of p.resource_changes || []) {
     const c = rc.change || {};
@@ -37,7 +38,14 @@ function redactPlan(p) {
       if (m === true) { keys.add('*'); continue; }
       if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) if (hasSecret(v)) keys.add(k);
     }
-    if (keys.size) sensKeys.set(norm(rc.address), keys);
+    // instances of one resource (count, for_each) share one config block: keep every instance's keys
+    if (keys.size) sensKeys.set(norm(rc.address), new Set([...(sensKeys.get(norm(rc.address)) || []), ...keys]));
+    if ('before' in c) c.before = redact(c.before, c.before_sensitive);
+    if ('after' in c) c.after = redact(c.after, c.after_sensitive);
+  }
+  // drift entries carry the same before/after and masks as planned changes
+  for (const rd of p.resource_drift || []) {
+    const c = rd.change || {};
     if ('before' in c) c.before = redact(c.before, c.before_sensitive);
     if ('after' in c) c.after = redact(c.after, c.after_sensitive);
   }
@@ -59,8 +67,11 @@ function redactPlan(p) {
   walkValues(p.prior_state && p.prior_state.values);
 
   const walkConfig = (m, prefix) => {
-    for (const k of Object.keys((m && m.variables) || {}))
-      if (m.variables[k].sensitive && !prefix && p.variables && k in p.variables) p.variables[k].value = REDACTED;
+    for (const k of Object.keys((m && m.variables) || {})) {
+      if (!m.variables[k].sensitive) continue;
+      if (!prefix && p.variables && k in p.variables) p.variables[k].value = REDACTED;
+      if ('default' in m.variables[k]) m.variables[k].default = REDACTED;   // a sensitive variable's default is a secret too
+    }
     for (const r of (m && m.resources) || []) {
       const keys = sensKeys.get(norm(prefix + r.address));
       if (!keys) continue;

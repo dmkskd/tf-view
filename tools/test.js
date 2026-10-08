@@ -1575,6 +1575,58 @@ describe("tools: make-kinds records each provider's version", () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+describe("llm review: resources are listed most critical first", () => {
+  // llm-review.ts imports only core/util, so it loads on its own (the other UI modules touch the DOM)
+  const esbuild = require("esbuild"), Module = require("module"), path = require("path");
+  const file = path.join(__dirname, "..", "src", "ts", "ui", "llm-review.ts");
+  const code = esbuild.buildSync({ entryPoints: [file], bundle: true, format: "cjs", platform: "node",
+                                   target: "node18", write: false, logLevel: "error" }).outputFiles[0].text;
+  const mod = new Module(file); mod.paths = module.paths; mod._compile(code, file);
+  const { sortByRisk, generateLlmReviewMarkdown, buildPlanLlmReviewHtml } = mod.exports;
+
+  const ins = (risk, irreversible) => ({ risk, irreversible: !!irreversible, badge: "b", note: "n" });
+  const order = entries => sortByRisk(entries).map(e => e[0]);
+
+  test("critical, high, medium, low", () => {
+    eq(order([["l", ins("LOW")], ["c", ins("CRITICAL")], ["m", ins("MEDIUM")], ["h", ins("HIGH")]]), ["c", "h", "m", "l"]);
+  });
+  test("the model's own order is kept within a risk level", () => {
+    eq(order([["a", ins("LOW")], ["b", ins("LOW")], ["c", ins("LOW")]]), ["a", "b", "c"]);
+  });
+  test("within a risk level, irreversible comes first", () => {
+    eq(order([["a", ins("HIGH")], ["b", ins("HIGH", true)], ["c", ins("HIGH")]]), ["b", "a", "c"]);
+  });
+  test("irreversible does not outrank a higher risk", () => {
+    eq(order([["a", ins("LOW", true)], ["b", ins("HIGH")]]), ["b", "a"]);
+  });
+  test("risk names are matched without regard to case", () => {
+    eq(order([["l", ins("low")], ["c", ins("Critical")]]), ["c", "l"]);
+  });
+  test("a missing or unknown risk goes last, and does not break the sort", () => {
+    eq(order([["x", ins(undefined)], ["y", ins("SEVERE")], ["l", ins("LOW")]]), ["l", "x", "y"]);
+  });
+  test("the input is not changed, and an empty list is fine", () => {
+    const input = [["l", ins("LOW")], ["c", ins("CRITICAL")]];
+    sortByRisk(input);
+    eq(input.map(e => e[0]), ["l", "c"]);
+    eq(sortByRisk([]), []);
+  });
+
+  const review = { risk_level: "CRITICAL", summary: "s", model: "m",
+    resources: { "aws_a.low": ins("LOW"), "aws_b.crit": ins("CRITICAL", true), "aws_c.med": ins("MEDIUM") } };
+  const positions = (text, names) => names.map(n => text.indexOf(n));
+  const ascending = xs => xs.every((x, i) => x >= 0 && (i === 0 || x > xs[i - 1]));
+
+  test("the triage list in the card follows that order", () => {
+    const text = String(buildPlanLlmReviewHtml(review));
+    ok(ascending(positions(text, ["aws_b.crit", "aws_c.med", "aws_a.low"])), "card order");
+  });
+  test("so does the Markdown that Copy produces", () => {
+    const text = generateLlmReviewMarkdown(review);
+    ok(ascending(positions(text, ["aws_b.crit", "aws_c.med", "aws_a.low"])), "markdown order");
+  });
+});
+
 /* ---- report ---------------------------------------------------------- */
 
 console.log(results.join("\n"));

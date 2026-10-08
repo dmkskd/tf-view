@@ -12,7 +12,7 @@ up:
     @echo "READY: GitLab http://localhost:8929 (root / demo-password-123), Atlantis http://localhost:4141"
     @echo "Next: just mr-create"
 
-# Open the MR: adds the app (EC2 instance + security group)
+# Open the MR: adds the app tier (IAM role, launch template, auto scaling group)
 mr-create:
     docker compose run --rm --build demo mr-create
 
@@ -24,17 +24,29 @@ drift:
 mr-change-1:
     docker compose run --rm --build demo mr-change-1
 
-# Review change 2: update the VPC's Env tag (in place)
+# Review change 2: change the load balancer health check (in place)
 mr-change-2:
     docker compose run --rm --build demo mr-change-2
 
-# Review change 3: add an S3 bucket
+# Review change 3: add asset storage (S3 bucket + access)
 mr-change-3:
     docker compose run --rm --build demo mr-change-3
 
 # Review change 4: add messaging (SNS topic + SQS queue)
 mr-change-4:
     docker compose run --rm --build demo mr-change-4
+
+# The whole demo: open the MR, then review changes 1 to 4, waiting SECONDS between steps (default 60)
+demo seconds="60":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just mr-create
+    for n in 1 2 3 4; do
+      echo "waiting {{seconds}}s for Atlantis to plan..."
+      sleep {{seconds}}
+      just mr-change-$n
+    done
+    echo "Done. Atlantis is planning the last push; see: just status"
 
 # Show the open MR and its commits
 status:

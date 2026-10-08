@@ -28,6 +28,27 @@ export function linkifyWarning(text: string, knownAddrs: string[]): string {
   });
 }
 
+var RISK_RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+
+/**
+ * The review's resources, most critical first. The model lists them in any order, so the order is set here:
+ * by risk, then irreversible before reversible, then the model's own order (the sort is stable).
+ */
+export function sortByRisk(entries: [string, LlmResourceInsight][]): [string, LlmResourceInsight][] {
+  function rank(e: [string, LlmResourceInsight]): number {
+    var r = RISK_RANK[(e[1].risk || "").toUpperCase()];
+    return r === undefined ? 4 : r;
+  }
+  return entries
+    .map(function(e: [string, LlmResourceInsight], i: number) { return { e: e, i: i }; })
+    .sort(function(a, b) {
+      return rank(a.e) - rank(b.e)
+        || Number(!!b.e[1].irreversible) - Number(!!a.e[1].irreversible)
+        || a.i - b.i;
+    })
+    .map(function(x) { return x.e; });
+}
+
 /**
  * Generates a clean Markdown summary suitable for GitHub/GitLab PR descriptions.
  */
@@ -52,7 +73,7 @@ export function generateLlmReviewMarkdown(llm: LlmReview): string {
     lines.push("");
   }
 
-  var resEntries = llm.resources ? Object.entries(llm.resources) : [];
+  var resEntries = llm.resources ? sortByRisk(Object.entries(llm.resources)) : [];
   if (resEntries.length > 0) {
     lines.push("#### Planned Resources Review");
     resEntries.forEach(function(entry: [string, LlmResourceInsight]) {
@@ -83,7 +104,7 @@ export function generateLlmReviewMarkdown(llm: LlmReview): string {
  */
 export function buildPlanLlmReviewHtml(llm: LlmReview): SafeHtml {
   var risk = llm.risk_level || "UNKNOWN";
-  var resEntries = llm.resources ? Object.entries(llm.resources) : [];
+  var resEntries = llm.resources ? sortByRisk(Object.entries(llm.resources)) : [];
   var knownAddrs = resEntries.map(function(e: [string, LlmResourceInsight]) { return e[0]; });
 
   var critCount = resEntries.filter(function(e: [string, LlmResourceInsight]) { return (e[1].risk || "").toUpperCase() === "CRITICAL"; }).length;
