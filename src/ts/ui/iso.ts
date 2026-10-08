@@ -59,7 +59,8 @@ function fitView(): void {
 var ISO_MS = 450;
 var isoLeaveTimer: any = null;
 
-function setIso(on: boolean): void {
+/* `persist` false: a change made by a link must not become the viewer's saved choice */
+function setIso(on: boolean, persist: boolean = true): void {
   if (!isoCanvas) isoCanvas = $("canvas");
   ISO.on = on;
   var wrap = $("canvasWrap");
@@ -82,7 +83,7 @@ function setIso(on: boolean): void {
   if (flatBtn) flatBtn.classList.toggle("on", !on && state.opts.render === "diagram");
   var isoBtn = $("renderIso");
   if (isoBtn) isoBtn.classList.toggle("on", on && state.opts.render === "diagram");
-  try { localStorage.setItem("tfplanview-iso", on ? "1" : "0"); } catch(e){}
+  if (persist) { try { localStorage.setItem("tfplanview-iso", on ? "1" : "0"); } catch(e){} }
   fitCanvas(parseFloat(isoCanvas ? isoCanvas.style.width : "0") || 0, parseFloat(isoCanvas ? isoCanvas.style.height : "0") || 0);
   applyTransform();
   if (state.model) fitView();

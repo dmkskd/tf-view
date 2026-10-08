@@ -4,6 +4,7 @@ import { parsePlan } from "./core/parser.js";
 import { addProviderIconSymbols } from "./core/icons.js";
 import { isSchemaFile, pruneSchema, storeSchema, restoreSchema } from "./core/schema.js";
 import { state, setModel, setSelected, onMode } from "./core/state.js";
+import { parseViewParams, type ViewParams } from "./core/urlparams.js";
 import {
   canvas, edgesSvg, render, select, setEmpty, applySelection,
   drawEdges, ACTION_COLOR
@@ -440,7 +441,23 @@ document.addEventListener("keydown", function(e: KeyboardEvent){ if (e.key === "
 
 if (emptySampleBtn) emptySampleBtn.addEventListener("click", function(){ loadSample(DEFAULT_SAMPLE_ID); });
 
+/* A link can ask for a view: ?sample=webapp&view=3d&changes=1&select=aws_lb.main (see core/urlparams.ts).
+   Applied once, after the plan is loaded. A link that does not fit the plan (an address it does not have)
+   is ignored for that part, and must never stop the page from starting. */
+function applyLinkParams(p: ViewParams): void {
+  try {
+    if (p.view === "text") setRender("text");
+    else if (p.view === "flat") { setRender("diagram"); setIso(false, false); }
+    else if (p.view === "3d") { setRender("diagram"); setIso(true, false); }
+    var chg = $("modeChg") as HTMLButtonElement | null;
+    if (p.changes === true && chg && !chg.disabled) applyMode("changes");
+    else if (p.changes === false) applyMode("all");
+    if (p.select && state.model && state.model.byAddr[p.select]) select(p.select);
+  } catch (e) { /* a bad link shows the plan as it is */ }
+}
+
 function boot(): void {
+  var link = parseViewParams(typeof location !== "undefined" ? location.search : "");
   if (viewerOnly()) document.body.classList.add("viewer-only");
   addProviderIconSymbols(document);
   restoreSchema();
@@ -459,6 +476,13 @@ function boot(): void {
        button is then disabled) */
     var chg = $("modeChg") as HTMLButtonElement | null;
     if (cfg.showChanges && chg && !chg.disabled) applyMode("changes");
+    applyLinkParams(link);
+    return;
+  }
+  /* a link to one of the bundled samples (a report with its own plan ignores `sample`) */
+  if (link.sampleId && sampleText(link.sampleId)) {
+    loadSample(link.sampleId);
+    applyLinkParams(link);
     return;
   }
   setEmpty(true);

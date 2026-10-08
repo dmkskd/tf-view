@@ -22,7 +22,7 @@ const SRC = path.join(ROOT, "src", "ts");
 /* The modules a harness may call into. UI modules are left out: they touch
    the DOM as soon as they load. */
 const CORE = ["parser", "references", "layout", "tree", "diff", "schema", "snapshot",
-              "hcl", "shell", "util", "registry", "rules", "links", "placement", "redact", "readonly", "hooks", "icons"];
+              "hcl", "shell", "util", "registry", "rules", "links", "placement", "redact", "readonly", "hooks", "icons", "urlparams"];
 
 let cached = null;
 function bundle() {

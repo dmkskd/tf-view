@@ -7,7 +7,7 @@
     "build": "tsc --noEmit && node scripts/build-single-html.js",
     "split": "node scripts/split-all.js",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run build && node tools/test.js && node tools/check-boot.js && node tools/check-links.js && node tools/check-render.js && node tools/check-csp.js && node tools/check-providers.js && node tools/check-pure.js | diff tools/baseline/check-pure.txt - && node tools/check-parse.js | diff tools/baseline/check-parse.txt - && node tools/check-layout.js | diff tools/baseline/check-layout.txt -"
+    "test": "npm run typecheck && npm run build && node tools/test.js && node tools/check-boot.js && node tools/check-links.js && node tools/check-render.js && node tools/check-url.js && node tools/check-csp.js && node tools/check-providers.js && node tools/check-pure.js | diff tools/baseline/check-pure.txt - && node tools/check-parse.js | diff tools/baseline/check-parse.txt - && node tools/check-layout.js | diff tools/baseline/check-layout.txt -"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

@@ -22,6 +22,7 @@ const baseAddr = app.fn("baseAddr");
 const matchRules = app.fn("matchRules");
 const modelSnapshot = app.fn("modelSnapshot");
 const listRefs = app.fn("listRefs");
+const parseViewParams = app.fn("parseViewParams");
 
 /* ---- runner ---------------------------------------------------------- */
 
@@ -1624,6 +1625,66 @@ describe("llm review: resources are listed most critical first", () => {
   test("so does the Markdown that Copy produces", () => {
     const text = generateLlmReviewMarkdown(review);
     ok(ascending(positions(text, ["aws_b.crit", "aws_c.med", "aws_a.low"])), "markdown order");
+  });
+});
+
+describe("links: the page address can ask for a view", () => {
+  const P = parseViewParams;
+
+  test("no parameters ask for nothing", () => {
+    eq(P(""), {});
+    eq(P("?"), {});
+    eq(P("?unrelated=1&other=x"), {});
+  });
+  test("sample: short names and full ids, any case", () => {
+    eq(P("?sample=webapp").sampleId, "embedded-plan-fullstack");
+    eq(P("?sample=single").sampleId, "embedded-plan");
+    eq(P("?sample=eks").sampleId, "embedded-plan-eks");
+    eq(P("?sample=WebApp").sampleId, "embedded-plan-fullstack");
+    eq(P("?sample=embedded-plan-eks").sampleId, "embedded-plan-eks");
+  });
+  test("sample: anything that is not a bundled sample is ignored", () => {
+    for (const bad of ["", "nope", "embedded-plan-evil", "tfview-config", "injected-plan", "../x", "<script>"])
+      eq(P("?sample=" + encodeURIComponent(bad)).sampleId, undefined, bad);
+  });
+  test("sample: names that exist on every object are not samples", () => {
+    // a lookup in a plain object would find these and return a function
+    for (const bad of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"])
+      eq(P("?sample=" + bad).sampleId, undefined, bad);
+  });
+  test("view: flat, 3d and text; anything else is ignored", () => {
+    eq(P("?view=flat").view, "flat");
+    eq(P("?view=3d").view, "3d");
+    eq(P("?view=3D").view, "3d");
+    eq(P("?view=text").view, "text");
+    for (const bad of ["", "iso", "diagram", "constructor", "__proto__", "3d;alert(1)"])
+      eq(P("?view=" + encodeURIComponent(bad)).view, undefined, bad);
+  });
+  test("changes: on or off, and silent about anything else", () => {
+    for (const v of ["1", "true", "on", "TRUE"]) eq(P("?changes=" + v).changes, true, v);
+    for (const v of ["0", "false", "off"]) eq(P("?changes=" + v).changes, false, v);
+    for (const v of ["", "yes", "2", "null"]) eq(P("?changes=" + v).changes, undefined, v);
+  });
+  test("select: an address, kept as text (it is matched against the plan, never used as markup)", () => {
+    eq(P("?select=aws_lb.app").select, "aws_lb.app");
+    const addr = 'module.web["a b"].aws_instance.x[0]';
+    eq(P("?select=" + encodeURIComponent(addr)).select, addr);
+    eq(P("?select=%3Cimg%20src%3Dx%3E").select, "<img src=x>");
+  });
+  test("select: empty or very long is dropped", () => {
+    eq(P("?select=").select, undefined);
+    eq(P("?select=" + "a".repeat(300)).select, "a".repeat(300));
+    eq(P("?select=" + "a".repeat(301)).select, undefined);
+  });
+  test("when a parameter is repeated, the first one counts", () => {
+    eq(P("?view=3d&view=text").view, "3d");
+  });
+  test("a broken escape does not throw", () => {
+    eq(P("?select=%E0%A4%A&view=flat").view, "flat");
+  });
+  test("all together", () => {
+    eq(P("?sample=webapp&view=3d&changes=1&select=aws_lb.app"),
+       { sampleId: "embedded-plan-fullstack", view: "3d", changes: true, select: "aws_lb.app" });
   });
 });
 

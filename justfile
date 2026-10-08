@@ -74,8 +74,8 @@ check: typecheck
     @echo "✅ All files passed syntax verification!"
 
 # Build and open the self-contained app directly in the default browser
-open: build
-    @open dist/index.html 2>/dev/null || xdg-open dist/index.html 2>/dev/null
+open query="": build
+    @url="file://$PWD/dist/index.html{{ if query == "" { "" } else { "?" + query } }}"; open "$url" 2>/dev/null || xdg-open "$url" 2>/dev/null
 
 # Re-extract clean modular files from pristine index.html
 split:
