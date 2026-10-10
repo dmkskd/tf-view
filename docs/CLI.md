@@ -46,15 +46,18 @@ terraform show -json plan.out | tfview open -        # opens the HTML report for
 ```sh
 tfview explain plan.json --model ollama::my-model
 tfview explain plan.json --model my-model --provider openai --api-key "$KEY"
-tfview explain --model ollama::my-model --offline     # generates the plan first, like `plan`
+tfview explain --model ollama::my-model --offline     # runs terraform plan in the current directory first
 tfview explain plan.json --model ollama::my-model --json > reviewed.json
 ```
 
-The review adds a summary, risk level, blast radius, warnings and per-resource notes to the report.
+The review adds a summary, risk level, blast radius, warnings and per-resource notes to the report. `explain` calls
+the model through the Rust crate [`genai`](https://github.com/jeremychone/rust-genai) (0.2); its README lists the
+supported providers and models. `tfview` enables OpenAI, Anthropic, Gemini, Ollama, Groq, DeepSeek, Cohere and xAI.
 
 | | |
 | --- | --- |
-| Model | `--model` is required. A prefix (`ollama::`) or `--provider` selects the provider. |
+| Model | `--model` is required. The provider comes from a prefix (`ollama::`, `anthropic/`), from `--provider`, or else from `genai`'s mapping of model names (e.g. `gpt-*` to OpenAI, `claude-*` to Anthropic, any unrecognised name to Ollama). |
+| API key | `--api-key` or `TFVIEW_API_KEY`; otherwise `genai` reads the provider's standard variable, e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`. Ollama needs no key. |
 | Resources | `--scope changes` (default): created, updated, replaced and deleted. `--scope full`: everything in `planned_values`. At most 150 resources and about 250 KB, replacements and deletions first. |
 | Sent to the model | Address, type, action and before/after values of each resource. `sensitive` values and credential-like attributes are masked. Use Ollama to keep the plan on your machine. |
 | Output | The HTML report. `--json-out PATH` writes the plan JSON with the review under `annotations.llm_review` to PATH; `--json` writes that JSON to standard output. The JSON output is not redacted. |
