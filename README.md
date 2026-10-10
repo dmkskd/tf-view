@@ -41,6 +41,10 @@ tfview open plan.json
 
 The optional `explain` command adds model-generated review annotations. See the [CLI guide](docs/CLI.md) for building the binary from source, command options, output handling, and data sent to a model.
 
+## Atlantis
+
+tf plan view can be integrated with [Atlantis](https://www.runatlantis.io/). See [Atlantis integration](docs/ATLANTIS.md) for setup and known limitations. Examples: [PR #13](https://github.com/dmkskd/tf-view-demo/pull/13), [PR #9](https://github.com/dmkskd/tf-view-demo/pull/9).
+
 ## Things to know
 
 - Reads `terraform show -json` plan output. Containment is inferred from `configuration.root_module.resources[].expressions[*].references`.
