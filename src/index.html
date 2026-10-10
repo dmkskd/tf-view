@@ -114,16 +114,18 @@
 
   <div class="split" id="split">
 
-    <aside class="side">
+    <button class="side-toggle" id="sideToggle" data-side-toggle aria-controls="side" aria-expanded="true" title="Hide the side panel"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="side-toggle-arrow" d="M9.8 4.5 6.3 8l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+
+    <aside class="side" id="side">
       <div class="block">
-        <h3>Plan <em id="planMeta">—</em></h3>
+        <h3><button class="blk-tog" data-blk="plan" aria-expanded="true">Plan</button> <em id="planMeta">—</em><svg class="chev blk-chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
         <div class="plan-sum" id="planSum"></div>
 
         <div class="chg-list" id="chgList"></div>
       </div>
 
       <div class="block" id="covBlock" hidden>
-        <h3>On the canvas <em id="covCount">—</em></h3>
+        <h3><button class="blk-tog" data-blk="canvas" aria-expanded="true">On the canvas</button> <em id="covCount">—</em><svg class="chev blk-chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
         <div class="cov">
           <div class="statbar" id="covBar"></div>
           <div class="cov-legend" id="covLegend"></div>
@@ -131,21 +133,21 @@
       </div>
 
       <div class="block">
-        <h3>Validation</h3>
+        <h3><button class="blk-tog" data-blk="validation" aria-expanded="true">Validation</button><svg class="chev blk-chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
         <div class="diag" id="diag"></div>
       </div>
 
       <div class="block">
-        <h3>Types <em id="typeCount">—</em>
+        <h3><button class="blk-tog" data-blk="types" aria-expanded="true">Types</button> <em id="typeCount">—</em>
           <span class="h3-tools">
             <button id="typesAll">all</button><i>/</i><button id="typesNone">none</button>
           </span>
-        </h3>
+        <svg class="chev blk-chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
         <div class="filters" id="filters"></div>
       </div>
 
       <div class="block">
-        <h3>View</h3>
+        <h3><button class="blk-tog" data-blk="view" aria-expanded="true">View</button><svg class="chev blk-chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
         <div class="opts">
           <label class="opt"><input type="checkbox" id="optAssoc"> Show association resources</label>
           <label class="opt"><input type="checkbox" id="optUnsup" checked> Show unsupported as tiles</label>

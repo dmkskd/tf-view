@@ -372,13 +372,18 @@
   .llm-triage-row[data-risk="HIGH"] { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
   .llm-triage-row[data-risk="MEDIUM"] { border-color: color-mix(in srgb, var(--cat-compute) 35%, var(--line)); }
   .llm-triage-row[data-risk="LOW"] { border-color: color-mix(in srgb, var(--create) 35%, var(--line)); }
+  /* Address left, risk badge pinned right: badges line up in one column whatever the address length */
   .llm-triage-top {
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 8px;
   }
+  .llm-triage-top .llm-risk-badge { flex-shrink: 0; margin-left: auto; }
   .llm-triage-addr {
     font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
     color: var(--accent); text-decoration: none; cursor: pointer;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .llm-triage-title {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
   .llm-triage-addr:hover { text-decoration: underline; color: var(--ink); }
   .llm-triage-note {

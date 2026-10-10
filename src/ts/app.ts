@@ -355,6 +355,60 @@ if (optEdges) optEdges.addEventListener("change", function(e: Event){ state.opts
   apply();
 })();
 
+/* ---------- side panel toggle (remembered across reloads) ---------- */
+(function(){
+  var split = $("split");
+  var btns = document.querySelectorAll<HTMLButtonElement>("[data-side-toggle]");
+  if (!split || !btns.length) return;
+  var hidden = false;
+  try { hidden = localStorage.getItem("tfplanview-side") === "hidden"; } catch(e){}
+
+  function apply(): void {
+    if (!split) return;
+    split.classList.toggle("side-hidden", hidden);
+    btns.forEach(function(b){
+      b.setAttribute("aria-expanded", hidden ? "false" : "true");
+      b.title = hidden ? "Show the side panel" : "Hide the side panel";
+    });
+    try { localStorage.setItem("tfplanview-side", hidden ? "hidden" : "shown"); } catch(e){}
+  }
+  btns.forEach(function(b){
+    b.addEventListener("click", function(){
+      hidden = !hidden;
+      apply();
+      drawEdges();   // the canvas changed width; edge paths are drawn in pixels
+    });
+  });
+  apply();
+})();
+
+/* ---------- side panel sections: the title collapses its block (remembered across reloads) ---------- */
+(function(){
+  var closed: Record<string, boolean> = {};
+  try { closed = JSON.parse(localStorage.getItem("tfplanview-side-sections") || "{}") || {}; } catch(e){ closed = {}; }
+
+  document.querySelectorAll<HTMLButtonElement>(".side .blk-tog").forEach(function(btn){
+    var key = btn.getAttribute("data-blk") || "";
+    var block = btn.closest(".block");
+    if (!key || !block) return;
+    function apply(): void {
+      if (!block) return;
+      block.classList.toggle("collapsed", !!closed[key]);
+      btn.setAttribute("aria-expanded", closed[key] ? "false" : "true");
+    }
+    // a click anywhere on the header row toggles, except on its own controls (Types' all / none)
+    var head = btn.parentElement;
+    if (head) head.addEventListener("click", function(e: MouseEvent){
+      var hit = (e.target as Element).closest("button");
+      if (hit && hit !== btn) return;
+      closed[key] = !closed[key];
+      apply();
+      try { localStorage.setItem("tfplanview-side-sections", JSON.stringify(closed)); } catch(e){}
+    });
+    apply();
+  });
+})();
+
 var renderFlatBtn = $("renderFlat");
 if (renderFlatBtn) renderFlatBtn.addEventListener("click", function(){ setRender("diagram"); setIso(false); });
 var renderIsoBtn = $("renderIso");

@@ -2,8 +2,27 @@
   .split{display:grid; grid-template-columns:288px minmax(0,1fr) 0px;
     flex:1 1 auto; min-height:0; overflow:hidden; position:relative;}
   .split.has-detail{grid-template-columns:288px minmax(0,1fr) 384px;}
+  /* the panel stays in the grid (0px wide) so the canvas keeps column 2 */
+  .split.side-hidden{grid-template-columns:0px minmax(0,1fr) 0px;}
+  .split.side-hidden.has-detail{grid-template-columns:0px minmax(0,1fr) 384px;}
+  .split.side-hidden .side{visibility:hidden; overflow:hidden; border-right:0;}
+  /* round tab inside the panel's top-right corner; with the panel hidden it moves to the canvas' left edge */
+  .side-toggle{
+    position:absolute; top:10px; left:258px; z-index:6;
+    display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0;
+    border:1px solid var(--line); border-radius:50%; background:var(--surface);
+    color:var(--muted); cursor:pointer; box-shadow:0 1px 3px rgba(19,26,34,.12);
+  }
+  .side-toggle:hover{color:var(--ink); border-color:var(--accent);}
+  .side-toggle svg{width:14px; height:14px;}
+  .side-toggle-arrow{transform-origin:8px 8px;}
+  .split.side-hidden .side-toggle{left:12px;}
+  .split.side-hidden .side-toggle-arrow{transform:scaleX(-1);}
+  .side > .block:first-child > h3{padding-right:28px;}   /* keeps the plan count clear of the tab */
   @media (max-width:1080px){
-    .split, .split.has-detail{grid-template-columns:1fr;}
+    .split, .split.has-detail, .split.side-hidden, .split.side-hidden.has-detail{grid-template-columns:1fr;}
+    .split.side-hidden .side{visibility:visible; overflow-y:auto;}   /* no toggle in one column: always shown */
+    .side-toggle{display:none;}
     .side{border-right:0; border-bottom:1px solid var(--line);}
     .detail{border-left:0 !important; border-top:1px solid var(--line);}
   }
@@ -37,6 +56,20 @@
   .block > h3 em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:11px;
     color:var(--muted); letter-spacing:0; text-transform:none; font-weight:500;}
   .block > h3 em .sep{color:var(--line); margin:0 5px;}
+  /* the whole header row toggles its block, like the detail panel's sections: chevron at the far right,
+     pointing down while open. A collapsed block keeps only its header row. */
+  .side .block > h3{cursor:pointer; -webkit-user-select:none; user-select:none;}
+  .blk-tog{
+    margin:0; padding:0; border:0; background:none; cursor:pointer;
+    font:inherit; letter-spacing:inherit; text-transform:inherit; color:inherit;
+  }
+  .side .block > h3:hover .blk-tog{color:var(--ink);}
+  .block > h3 > #planMeta, .block > h3 > #covCount{margin-left:auto;}
+  .blk-chev{width:9px; height:9px; flex:none; color:var(--faint); transition:transform .18s ease;}
+  .blk-tog + .blk-chev{margin-left:auto;}
+  .blk-tog[aria-expanded="true"] ~ .blk-chev{transform:rotate(90deg);}
+  @media (prefers-reduced-motion:reduce){ .blk-chev{transition:none;} }
+  .block.collapsed > :not(h3){display:none;}
 
   /* coverage */
   /* long plans scroll inside the list, so the sections below stay in reach.

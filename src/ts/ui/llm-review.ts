@@ -176,9 +176,13 @@ export function buildPlanLlmReviewHtml(llm: LlmReview): SafeHtml {
                   <div class="llm-triage-top">
                     <a class="llm-triage-addr" data-goto="${addr}" title="Select ${addr} on diagram">${addr}</a>
                     <span class="llm-risk-badge" data-risk="${itemRisk}">${insight.risk}</span>
-                    ${insight.badge && html`<span class="llm-insight-badge-text">${insight.badge}</span>`}
-                    ${insight.irreversible && html`<span class="llm-irreversible-pill">Irreversible</span>`}
                   </div>
+                  ${(insight.badge || insight.irreversible) && html`
+                    <div class="llm-triage-title">
+                      ${insight.badge && html`<span class="llm-insight-badge-text">${insight.badge}</span>`}
+                      ${insight.irreversible && html`<span class="llm-irreversible-pill">Irreversible</span>`}
+                    </div>
+                  `}
                   ${insight.note && html`<div class="llm-triage-note">${insight.note}</div>`}
                 </div>
               `;
