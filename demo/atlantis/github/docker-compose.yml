@@ -62,7 +62,15 @@ services:
       ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
       ATLANTIS_PORT: "4141"
       GH_TOKEN: ${GH_TOKEN}          # for the gh CLI used by the workflow
-      PLAN_IMAGE: "on"
+      # The comment's image (settings in ../shared/lib.sh); set them in .env, e.g. PLAN_IMAGE=svg
+      PLAN_IMAGE: ${PLAN_IMAGE:-on}
+      PLAN_IMAGE_STYLE: ${PLAN_IMAGE_STYLE:-tour}
+      PLAN_IMAGE_DETAILS: ${PLAN_IMAGE_DETAILS:-0}
+      PLAN_IMAGE_ANIMATION: ${PLAN_IMAGE_ANIMATION:-on}
+      PLAN_IMAGE_TOUR: ${PLAN_IMAGE_TOUR:-on}
+      PLAN_IMAGE_TOUR_STOPS: ${PLAN_IMAGE_TOUR_STOPS:-8}
+      PLAN_IMAGE_TOUR_DELAY: ${PLAN_IMAGE_TOUR_DELAY:-0}
+      REPORT_HTML: ${REPORT_HTML:-on}
       # Optional LLM review in the report, off unless TFVIEW_LLM=true. Example for Ollama running on this machine:
       #   TFVIEW_LLM=true TFVIEW_MODEL=ollama::gpt-oss:20b TFVIEW_ENDPOINT=http://host.docker.internal:11434
       TFVIEW_LLM: ${TFVIEW_LLM:-false}

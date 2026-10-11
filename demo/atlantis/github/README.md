@@ -16,6 +16,7 @@ just mr-change-2
 just mr-change-3
 just mr-change-4
 just demo          # or all of the steps above in one go, 60 s apart (just demo 30 for 30 s)
+just showcase      # new demo PR with changes 1-2, then the plan once per image setting (just showcase 15: continue #15)
 just down          # remove the webhook and stop everything
 ```
 The report is made by the `tfview` binary, built into the Atlantis image (`atlantis/report.sh`; the first build compiles it, a few minutes). It removes sensitive values.

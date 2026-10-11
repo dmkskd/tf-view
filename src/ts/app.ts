@@ -15,6 +15,10 @@ import { renderDetail, renderPlanInfo, copyText } from "./ui/detail.js";
 import { linksEnabled, setLinksEnabled, restoreLinksEnabled } from "./core/links.js";
 import { closeCtx } from "./ui/contextmenu.js";
 import { fitView, setIso, ISO } from "./ui/iso.js";
+import { exportSvg, type SvgExportOptions } from "./ui/svgexport.js";
+import "./ui/svgreplay.js";
+import { exportDetails } from "./ui/svgdetails.js";
+import { showSvgPreview, type PreviewSettings } from "./ui/svgpreview.js";
 import "./ui/rule-popover.js";
 import type { PlanModel, PlanResource } from "./types/index.js";
 
@@ -508,6 +512,53 @@ function applyLinkParams(p: ViewParams): void {
     else if (p.changes === false) applyMode("all");
     if (p.select && state.model && state.model.byAddr[p.select]) select(p.select);
   } catch (e) { /* a bad link shows the plan as it is */ }
+  if (p.exportSvg) showSvgExport({
+    pulse: p.animate !== false,
+    tour: p.animate !== false && p.tour !== false,
+    tourStops: p.tourStops,
+    tourDelay: p.tourDelay,
+    style: p.style
+  }, p.preview ? (p.details === undefined ? 8 : p.details) : (p.details || 0), !!p.preview);
+}
+
+/* ?export=svg: the page becomes the SVG source in one <pre>, for
+   `chromium --headless --dump-dom` (see demo/atlantis/shared/lib.sh). The
+   diagram is drawn flat; the fonts must be loaded before text is measured.
+   animate=0 stops all motion (no tour, no pulse); tour=0 stops only the tour;
+   tourstops and tourdelay set how many changes it visits and when it starts;
+   details=N adds the per-change sections; preview=1 shows it all with controls. */
+function showSvgExport(opts: SvgExportOptions, details: number, preview: boolean): void {
+  setRender("diagram"); setIso(false, false);
+  if (preview) {
+    var make = function(ps: PreviewSettings){
+      var o: SvgExportOptions = { pulse: ps.animate, tour: ps.animate, tourStops: ps.tourStops, tourDelay: ps.tourDelay, style: ps.style };
+      return { svg: exportSvg(o) || "", details: ps.details > 0 ? exportDetails(ps.details) : null };
+    };
+    var first = {
+      style: opts.style || "tour", animate: opts.pulse !== false,
+      tourStops: opts.tourStops === undefined ? 8 : opts.tourStops,
+      tourDelay: opts.tourDelay || 0, details: details
+    };
+    var open = function(){ showSvgPreview(make, first); };
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(open, open); else open();
+    return;
+  }
+  var done = function(){
+    var svg = exportSvg(opts);
+    /* computed before the page is replaced: both read the canvas */
+    var more = details > 0 ? exportDetails(details) : null;
+    var pre = document.createElement("pre");
+    pre.id = "tfview-svg";
+    pre.textContent = svg || "";
+    document.body.replaceChildren(pre);
+    if (more) {
+      var dp = document.createElement("pre");
+      dp.id = "tfview-details";
+      dp.textContent = JSON.stringify(more);
+      document.body.appendChild(dp);
+    }
+  };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(done, done); else done();
 }
 
 function boot(): void {

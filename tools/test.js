@@ -1676,6 +1676,49 @@ describe("links: the page address can ask for a view", () => {
     eq(P("?select=" + "a".repeat(300)).select, "a".repeat(300));
     eq(P("?select=" + "a".repeat(301)).select, undefined);
   });
+  test("export: svg only", () => {
+    eq(P("?export=svg").exportSvg, true);
+    eq(P("?export=SVG").exportSvg, true);
+    for (const bad of ["", "png", "1", "svg;x", "constructor"])
+      eq(P("?export=" + encodeURIComponent(bad)).exportSvg, undefined, bad);
+  });
+  test("tour: on or off, and silent about anything else", () => {
+    for (const v of ["1", "true", "on"]) eq(P("?tour=" + v).tour, true, v);
+    for (const v of ["0", "false", "off", "OFF"]) eq(P("?tour=" + v).tour, false, v);
+    for (const v of ["", "yes", "2"]) eq(P("?tour=" + v).tour, undefined, v);
+  });
+  test("animate: on or off, and silent about anything else", () => {
+    for (const v of ["1", "true", "on"]) eq(P("?animate=" + v).animate, true, v);
+    for (const v of ["0", "false", "off"]) eq(P("?animate=" + v).animate, false, v);
+    for (const v of ["", "no", "2"]) eq(P("?animate=" + v).animate, undefined, v);
+  });
+  test("tourstops: 0 to 20", () => {
+    eq(P("?tourstops=0").tourStops, 0);
+    eq(P("?tourstops=3").tourStops, 3);
+    eq(P("?tourstops=20").tourStops, 20);
+    for (const v of ["", "21", "-1", "2.5", "x", "1e1", "100"]) eq(P("?tourstops=" + v).tourStops, undefined, v);
+  });
+  test("tourdelay: 0 to 60 seconds", () => {
+    eq(P("?tourdelay=0").tourDelay, 0);
+    eq(P("?tourdelay=5").tourDelay, 5);
+    eq(P("?tourdelay=2.5").tourDelay, 2.5);
+    eq(P("?tourdelay=60").tourDelay, 60);
+    for (const v of ["", "61", "-1", "x", "1e1", "5s"]) eq(P("?tourdelay=" + v).tourDelay, undefined, v);
+  });
+  test("style: tour or replay", () => {
+    eq(P("?style=tour").style, "tour");
+    eq(P("?style=Replay").style, "replay");
+    for (const v of ["", "zoom", "constructor", "replay;x"]) eq(P("?style=" + encodeURIComponent(v)).style, undefined, v);
+  });
+  test("details: 0 to 20", () => {
+    eq(P("?details=0").details, 0);
+    eq(P("?details=8").details, 8);
+    for (const v of ["", "21", "-1", "x", "2.5"]) eq(P("?details=" + v).details, undefined, v);
+  });
+  test("preview: on, or nothing", () => {
+    for (const v of ["1", "true", "on"]) eq(P("?preview=" + v).preview, true, v);
+    for (const v of ["", "0", "off", "yes"]) eq(P("?preview=" + v).preview, undefined, v);
+  });
   test("when a parameter is repeated, the first one counts", () => {
     eq(P("?view=3d&view=text").view, "3d");
   });

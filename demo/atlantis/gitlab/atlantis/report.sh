@@ -17,30 +17,51 @@ upload() {  # $1 = file
   timeout -k 5 "$(net_timeout)" curl -fsS --connect-timeout 10 -H "$AUTH" -F "file=@$1" "$GL/uploads"
 }
 
+# For details_markdown: upload a crop and print its URL
+upload_url() {  # $1 = file
+  upload "$1" | jq -r '.url // empty'
+}
+
 main() {
+  # REPORT_HTML=off: the report is drawn in a temporary folder, only to make the images (run_guarded removes it)
+  out_dir=$(report_dir) || return 1
+  keep_html=true; [ "${REPORT_HTML:-on}" = off ] && keep_html=false
+  html="$out_dir/$name"
+
   STEP="reading the plan"
   terraform show -json "$PLANFILE" > "$DIR/plan.json"
 
   STEP="rendering the report (and the LLM review, if asked for)"
-  render_report "$DIR/plan.json" "/reports/$name" "MR !${PULL_NUM} ${REPO_REL_DIR}"
+  render_report "$DIR/plan.json" "$html" "MR !${PULL_NUM} ${REPO_REL_DIR}"
   rm -f "$DIR/plan.json"
 
   # Store the HTML in GitLab itself (GitLab never renders it, but it is kept with the MR)
-  STEP="uploading the report"
-  archived=""
-  if resp=$(upload "/reports/$name") && md=$(printf '%s' "$resp" | jq -r .markdown); then
-    archived="Archived copy stored in GitLab (downloads, GitLab never renders HTML): ${md}"
-  else
-    echo "tfview report: could not upload the report to GitLab" >&2
+  archived="" open_line=""
+  if [ "$keep_html" = true ]; then
+    STEP="uploading the report"
+    open_line="**[Open the visual plan in a new tab](${link})**"
+    if resp=$(upload "$html") && md=$(printf '%s' "$resp" | jq -r .markdown); then
+      archived="Archived copy stored in GitLab (downloads, GitLab never renders HTML): ${md}"
+    else
+      echo "tfview report: could not upload the report to GitLab" >&2
+    fi
   fi
 
-  STEP="making the screenshot"
+  STEP="making the image"
   chg=$(git -C "$DIR" log -1 --format=%B "$HEAD_COMMIT" 2>/dev/null | sed 's/^/> /') || chg=""
-  shot=""
-  png="/reports/${name%.html}.png"
-  if take_screenshot "/reports/$name" "$png"; then
+  shot="" details_md=""
+  svg="$out_dir/${name%.html}.svg"
+  png="$out_dir/${name%.html}.png"
+  # the image links to the report when there is one
+  framed() { if [ "$keep_html" = true ]; then printf '[![Visual plan](%s)](%s)' "$1" "$link"; else printf '![Visual plan](%s)' "$1"; fi; }
+  if take_svg "$html" "$svg" && resp=$(upload "$svg") && img=$(printf '%s' "$resp" | jq -r .url); then
+    shot=$(framed "$img")
+    if [ -s "${svg%.svg}.details.json" ]; then
+      details_md=$(details_markdown "${svg%.svg}.details.json" upload_url) || details_md=""
+    fi
+  elif take_screenshot "$html" "$png"; then
     if resp=$(upload "$png") && img=$(printf '%s' "$resp" | jq -r .url); then
-      shot="[![Visual plan](${img})]($link)"
+      shot=$(framed "$img")
     else
       echo "tfview report: could not upload the screenshot" >&2
     fi
@@ -52,14 +73,16 @@ main() {
     --data-urlencode "body=### Visual plan (${PROJECT_NAME:-default})
 ${chg}
 
-**[Open the visual plan in a new tab](${link})**
+${open_line}
 
 ${llm}
 
 ${shot}
 
+${details_md}
+
 ${archived}" >/dev/null
-  echo "Visual plan: $link"
+  if [ "$keep_html" = true ]; then echo "Visual plan: $link"; else echo "Visual plan posted on MR !${PULL_NUM}"; fi
 }
 
 run_guarded main

@@ -9,6 +9,14 @@ export interface ViewParams {
   view?: ViewParam;
   changes?: boolean;
   select?: string;        // a resource address; the caller checks it against the loaded plan
+  exportSvg?: boolean;    // replace the page with the flat diagram as SVG text (for headless capture)
+  tour?: boolean;         // the SVG's guided tour (on unless tour=0)
+  animate?: boolean;      // any motion in the SVG: tour and pulse (on unless animate=0)
+  tourStops?: number;     // how many changes the SVG's tour visits, 0 to 20
+  tourDelay?: number;     // seconds before the SVG's tour starts, 0 to 60
+  style?: "tour" | "replay";  // how the SVG animates
+  details?: number;       // with export=svg: also a section per change, for this many changes (0 to 20)
+  preview?: boolean;      // with export=svg: show the result as a comment would, with controls, instead of its source
 }
 
 /* Short names for the bundled samples. The full ids are accepted too. */
@@ -42,6 +50,28 @@ export function parseViewParams(search: string): ViewParams {
 
   var select = q.get("select") || "";
   if (select && select.length <= MAX_ADDRESS) out.select = select;
+
+  if ((q.get("export") || "").trim().toLowerCase() === "svg") out.exportSvg = true;
+  var tour = (q.get("tour") || "").trim().toLowerCase();
+  if (tour === "1" || tour === "true" || tour === "on") out.tour = true;
+  else if (tour === "0" || tour === "false" || tour === "off") out.tour = false;
+  var stops = (q.get("tourstops") || "").trim();
+  if (/^\d{1,2}$/.test(stops) && +stops <= 20) out.tourStops = +stops;
+  var delay = (q.get("tourdelay") || "").trim();
+  if (/^\d{1,2}(\.\d{1,2})?$/.test(delay) && +delay <= 60) out.tourDelay = +delay;
+
+  var details = (q.get("details") || "").trim();
+  if (/^\d{1,2}$/.test(details) && +details <= 20) out.details = +details;
+
+  var preview = (q.get("preview") || "").trim().toLowerCase();
+  if (preview === "1" || preview === "true" || preview === "on") out.preview = true;
+
+  var style = (q.get("style") || "").trim().toLowerCase();
+  if (style === "tour" || style === "replay") out.style = style;
+
+  var animate = (q.get("animate") || "").trim().toLowerCase();
+  if (animate === "1" || animate === "true" || animate === "on") out.animate = true;
+  else if (animate === "0" || animate === "false" || animate === "off") out.animate = false;
 
   return out;
 }

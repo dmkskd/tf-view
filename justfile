@@ -51,6 +51,10 @@ test-pure:
 test-parse:
     node tools/check-parse.js | diff tools/baseline/check-parse.txt -
 
+# Preview a plan's SVG export (the image for a PR comment) in the browser, with controls for style, animation and sections
+svg-preview plan="samples/aws-full-stack/changes-plan.json": build
+    out="dist/svg-preview.html"; node demo/atlantis/shared/inject.js dist/index.html "{{plan}}" "{{file_name(plan)}}" > "$out" && open "file://$PWD/$out?export=svg&preview=1&changes=1"
+
 # Verify layout coordinates and hierarchy against baseline
 test-layout:
     node tools/check-layout.js | diff tools/baseline/check-layout.txt -

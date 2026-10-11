@@ -67,6 +67,10 @@ demo seconds="60":
     done
     echo "Done. Atlantis is planning the last push; see: just status"
 
+# A showcase PR: a new demo PR (or the open one, `pr`), review changes 1 and 2, then the plan once per image setting (PNG, SVG tour, sections, replay, still, no HTML)
+showcase pr="":
+    scripts/showcase.sh {{pr}}
+
 # Show the open PR and its commits
 status:
     scripts/demo.sh status
