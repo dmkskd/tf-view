@@ -7,6 +7,7 @@ export const state: AppState = {
   opts: {
     showAssoc: false,
     showUnsup: true,
+    showUtility: false,
     edges: "select",
     mode: "all",
     render: "diagram",

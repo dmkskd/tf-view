@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Drives the demo PR through the GitHub API. Atlantis plans every push and comments with the visual plan.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "${DEMO_DIR:-$(dirname "$0")/..}"   # DEMO_DIR: another demo folder using these scripts
 
 usage() { cat <<'U'
 usage: just <command>
@@ -19,7 +19,7 @@ cmd=${1:-}; [ -n "$cmd" ] || { usage; exit 2; }
 
 set -a; . ./.env; set +a
 export GH_TOKEN
-. ../shared/revisions.sh   # change_def
+. "${SHARED:-../shared}/revisions.sh"   # change_def
 R=$GH_REPO
 FILE=infra/extra.auto.tfvars
 b64() { base64 | tr -d '\n'; }
@@ -53,7 +53,8 @@ case "$cmd" in
     gh api -X POST "repos/$R/pulls" -f "title=$msg" -f "head=$BR" -f base=main -f "body=$body" --jq '"PR: " + .html_url'
     echo "Atlantis should comment within ~1 min."
     ;;
-  mr-change-1|mr-change-2|mr-change-3|mr-change-4)
+  mr-change-*)
+    change_def "$cmd" >/dev/null || { usage; exit 2; }
     open_pr
     IFS='|' read -r msg key val body <<<"$(change_def "$cmd")"
     set_var "$BR" "$cmd: $msg"$'\n\n'"$body" "$key" "$val"

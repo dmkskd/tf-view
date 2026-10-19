@@ -536,7 +536,8 @@ function detailHeader(r: PlanResource): SafeHtml {
       ${link && html`<a class="console-link" href="${link}" title="${linkTitle(link, consoleName)}" target="_blank" rel="noopener noreferrer">Open in ${consoleName} \u2197</a>`}
       ${hasFlags && html`
         <div class="badges">
-          ${!r.supported && html`<span class="badge badge-warn">not implemented</span>`}
+          ${r.utility ? html`<span class="badge">Terraform utility, creates no infrastructure</span>`
+                      : html`<span class="badge badge-warn">not implemented</span>`}
         </div>
       `}
     </div>

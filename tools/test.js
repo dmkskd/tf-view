@@ -822,6 +822,253 @@ describe("security: diagnostics are plain text", () => {
   });
 });
 
+describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
+  const CH = "registry.terraform.io/clickhouse/clickhouse";
+  const LOC = "AWS us-east-1";
+  /* one resource: [address, after, references by attribute] */
+  const chPlan = (items) => ({
+    format_version: "1.2",
+    configuration: { root_module: { resources: items.map(([address, , refs]) => {
+      const [type, name] = address.split(".");
+      const expressions = {};
+      for (const [k, r] of Object.entries(refs || {})) expressions[k] = { references: r };
+      return { address, type, name, mode: "managed", expressions };
+    }) } },
+    resource_changes: items.map(([address, after]) => {
+      const [type, name] = address.split(".");
+      return { address, type, name, mode: "managed", provider_name: CH, change: { actions: ["create"], after: after || {} } };
+    })
+  });
+  const svc = (name, extra) => Object.assign({ name, cloud_provider: "aws", region: "us-east-1" }, extra || {});
+  const joins = (primary) => ({ warehouse_id: ["clickhouse_service." + primary + ".warehouse_id", "clickhouse_service." + primary] });
+  const onService = (s) => ({ service_id: ["clickhouse_service." + s + ".id", "clickhouse_service." + s] });
+  const where = (items) => placements(parsePlan(chPlan(items), "t"));
+
+  test("a single service gets no warehouse box", () => {
+    const w = where([["clickhouse_service.a", svc("a")]]);
+    eq(w["clickhouse_service.a"], LOC);
+  });
+
+  test("a secondary that references its primary shares a warehouse box named after the primary", () => {
+    /* the primary sorts last by address, so the name comes from the reference */
+    const w = where([
+      ["clickhouse_service.z_primary", svc("main")],
+      ["clickhouse_service.a_reader", svc("reader", { readonly: true }), joins("z_primary")]
+    ]);
+    eq(w["clickhouse_service.z_primary"], "Warehouse main shared data");
+    eq(w["clickhouse_service.a_reader"], "Warehouse main shared data");
+  });
+
+  test("services with the same known warehouse_id share a box; is_primary names it", () => {
+    const w = where([
+      ["clickhouse_service.a", svc("a", { warehouse_id: "wh-1" })],
+      ["clickhouse_service.b", svc("b", { warehouse_id: "wh-1", is_primary: true })]
+    ]);
+    eq(w["clickhouse_service.a"], "Warehouse b shared data");
+    eq(w["clickhouse_service.b"], "Warehouse b shared data");
+  });
+
+  test("services with different warehouse_id values get no warehouse box", () => {
+    const w = where([
+      ["clickhouse_service.a", svc("a", { warehouse_id: "wh-1" })],
+      ["clickhouse_service.b", svc("b", { warehouse_id: "wh-2" })]
+    ]);
+    eq(w["clickhouse_service.a"], LOC);
+    eq(w["clickhouse_service.b"], LOC);
+  });
+
+  test("a reference and an equal warehouse_id join three services into one warehouse", () => {
+    const w = where([
+      ["clickhouse_service.p", svc("p", { warehouse_id: "wh-1" })],
+      ["clickhouse_service.r", svc("r"), joins("p")],
+      ["clickhouse_service.x", svc("x", { warehouse_id: "wh-1" })]
+    ]);
+    for (const a of ["p", "r", "x"]) eq(w["clickhouse_service." + a], "Warehouse p shared data", a);
+  });
+
+  test("two warehouses in one region get a box each", () => {
+    const w = where([
+      ["clickhouse_service.a", svc("a")],
+      ["clickhouse_service.a2", svc("a2"), joins("a")],
+      ["clickhouse_service.b", svc("b")],
+      ["clickhouse_service.b2", svc("b2"), joins("b")]
+    ]);
+    eq(w["clickhouse_service.a2"], "Warehouse a shared data");
+    eq(w["clickhouse_service.b2"], "Warehouse b shared data");
+  });
+
+  test("ClickPipes, CDC infrastructure and reverse endpoints sit outside the service, in its location box", () => {
+    const w = where([
+      ["clickhouse_service.a", svc("a")],
+      ["clickhouse_clickpipe.s3", { name: "s3" }, onService("a")],
+      ["clickhouse_clickpipe_cdc_infrastructure.this", {}, onService("a")],
+      ["clickhouse_clickpipes_reverse_private_endpoint.db", { type: "VPC_ENDPOINT_SERVICE" }, onService("a")],
+      ["clickhouse_clickpipes_reverse_private_endpoint_custom_private_dns.db", {},
+        { reverse_private_endpoint_id: ["clickhouse_clickpipes_reverse_private_endpoint.db.id", "clickhouse_clickpipes_reverse_private_endpoint.db"] }]
+    ]);
+    for (const a of ["clickhouse_clickpipe.s3", "clickhouse_clickpipe_cdc_infrastructure.this",
+                     "clickhouse_clickpipes_reverse_private_endpoint.db",
+                     "clickhouse_clickpipes_reverse_private_endpoint_custom_private_dns.db"]) eq(w[a], LOC, a);
+  });
+
+  test("service settings stay inside the service box", () => {
+    const w = where([
+      ["clickhouse_service.a", svc("a")],
+      ["clickhouse_service_private_endpoints_attachment.a", {}, onService("a")],
+      ["clickhouse_service_upgrade_window.a", { weekday: 3 }, onService("a")]
+    ]);
+    eq(w["clickhouse_service_private_endpoints_attachment.a"], "Service a");
+    eq(w["clickhouse_service_upgrade_window.a"], "Service a");
+  });
+
+  test("a ClickPipe on a warehouse service sits outside the warehouse box, not enclosed by its service", () => {
+    const m = parsePlan(chPlan([
+      ["clickhouse_service.w", svc("w")],
+      ["clickhouse_service.r", svc("r", { readonly: true }), joins("w")],
+      ["clickhouse_clickpipe.s3", { name: "s3" }, onService("w")]
+    ]), "t");
+    eq(placements(m)["clickhouse_clickpipe.s3"], LOC);
+    /* an edge to an enclosing box is dropped as redundant; this one is not enclosing */
+    eq(m.anc["clickhouse_clickpipe.s3"].includes("clickhouse_service.w"), false);
+  });
+
+  /* the layout box drawn for a resource */
+  const boxFor = (items, addr) => {
+    const m = parsePlan(chPlan(items), "t");
+    let found = null;
+    (function walk(g) {
+      if (g.box && g.res && g.res.addr === addr) found = g;
+      if (g.box) g.children.forEach(walk);
+    })(buildTree(m, OPTS));
+    return found;
+  };
+
+  test("service boxes ask for reference lines, so a ClickPipe's line to its service is drawn", () => {
+    eq(boxFor([["clickhouse_service.a", svc("a")]], "clickhouse_service.a").edges, true);
+  });
+
+  const summaryFor = app.fn("summaryFor");
+  const summary = (attrs) => summaryFor(parsePlan(chPlan([["clickhouse_service.a", svc("a", attrs)]]), "t").byAddr["clickhouse_service.a"]);
+  const rows = (...pairs) => pairs.map(([label, value]) => ({ label, value }));
+
+  test("the hover card summary gives replicas, per-replica size and the total", () => {
+    eq(summary({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8 }),
+       rows(["replicas", "3"], ["per replica", "8 GiB \u00b7 2 vCPU"], ["total", "24 GiB \u00b7 6 vCPU"]));
+  });
+
+  test("the summary totals ranges: lowest by lowest, highest by highest", () => {
+    eq(summary({ min_replicas: 2, max_replicas: 4, min_replica_memory_gb: 16, max_replica_memory_gb: 16 }),
+       rows(["replicas", "2\u20134 (horizontal autoscaling)"], ["per replica", "16 GiB \u00b7 4 vCPU"], ["total", "32\u201364 GiB \u00b7 8\u201316 vCPU"]));
+    eq(summary({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 32 }),
+       rows(["replicas", "2"], ["per replica", "8\u201332 GiB \u00b7 2\u20138 vCPU"], ["total", "16\u201364 GiB \u00b7 4\u201316 vCPU"]));
+  });
+
+  test("an unknown replica count gives no total; an unknown profile gives no vCPU", () => {
+    eq(summary({ min_replica_memory_gb: 8, max_replica_memory_gb: 8 }),
+       rows(["replicas", "not in the plan"], ["per replica", "8 GiB \u00b7 2 vCPU"]));
+    eq(summary({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 8, profile: "custom-x" }),
+       rows(["replicas", "2"], ["per replica", "8 GiB"], ["total", "16 GiB"]));
+  });
+
+  test("resources other than services have no summary", () => {
+    const m = parsePlan(chPlan([["clickhouse_service.a", svc("a")], ["clickhouse_clickpipe.p", { name: "p" }, onService("a")]]), "t");
+    eq(summaryFor(m.byAddr["clickhouse_clickpipe.p"]), []);
+  });
+
+  const meta = (attrs) => boxFor([["clickhouse_service.a", svc("a", attrs)]], "clickhouse_service.a").meta;
+
+  test("the header gives replicas, memory and vCPU per replica (default profile: 4 GiB per vCPU)", () => {
+    eq(meta({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true }),
+       "3 \u00d7 8 GiB \u00b7 2 vCPU each \u00b7 idles");
+  });
+
+  test("vertical autoscaling gives memory and vCPU as ranges", () => {
+    eq(meta({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 32, profile: "v1-default" }),
+       "2 \u00d7 8\u201332 GiB \u00b7 2\u20138 vCPU each");
+  });
+
+  test("horizontal autoscaling gives the replica band", () => {
+    eq(meta({ min_replicas: 2, max_replicas: 4, min_replica_memory_gb: 16, max_replica_memory_gb: 16 }),
+       "2\u20134 \u00d7 16 GiB \u00b7 4 vCPU each");
+  });
+
+  test("the high-memory profile has 8 GiB per vCPU; another profile gets no vCPU", () => {
+    eq(meta({ num_replicas: 3, min_replica_memory_gb: 32, max_replica_memory_gb: 32, profile: "v1-highmem-xl" }),
+       "3 \u00d7 32 GiB \u00b7 4 vCPU each");
+    eq(meta({ num_replicas: 3, min_replica_memory_gb: 32, max_replica_memory_gb: 32, profile: "custom-x" }),
+       "3 \u00d7 32 GiB");
+  });
+
+  test("an unknown replica count leaves out the count and \u201ceach\u201d", () => {
+    eq(meta({ min_replica_memory_gb: 8, max_replica_memory_gb: 8, readonly: true }), "8 GiB \u00b7 2 vCPU \u00b7 read-only");
+  });
+
+  test("a replica count without memory still shows the count", () => {
+    eq(meta({ num_replicas: 1 }), "1 replica");
+  });
+});
+
+describe("edges: a line to a box is dropped when a line to something inside it says the same", () => {
+  const drop = app.fn("dropCoveredBoxEdges");
+  /* svc is a box holding att; ep, pipe and other are tiles outside it */
+  const anc = { svc: [], att: ["svc"], ep: [], pipe: [], other: [] };
+  const isBox = a => a === "svc";
+
+  test("endpoint -> service is dropped when the attachment inside the service names the endpoint", () => {
+    eq(drop([["ep", "svc"], ["att", "ep"]], anc, isBox), [["att", "ep"]]);
+  });
+
+  test("a line to the box with no inner line is kept (ClickPipe -> service)", () => {
+    eq(drop([["pipe", "svc"], ["att", "ep"]], anc, isBox), [["pipe", "svc"], ["att", "ep"]]);
+  });
+
+  test("the box line alone is kept (the service selected: the attachment line is not shown)", () => {
+    eq(drop([["ep", "svc"]], anc, isBox), [["ep", "svc"]]);
+  });
+
+  test("a line to something outside the box does not cover it", () => {
+    eq(drop([["ep", "svc"], ["ep", "other"]], anc, isBox), [["ep", "svc"], ["ep", "other"]]);
+  });
+
+  test("the box can be on either end", () => {
+    eq(drop([["svc", "ep"], ["ep", "att"]], anc, isBox), [["ep", "att"]]);
+  });
+
+  test("in a real plan, the VPC endpoint gets one line into ClickHouse, to the attachment", () => {
+    const AWS = "registry.terraform.io/hashicorp/aws", CH = "registry.terraform.io/clickhouse/clickhouse";
+    const items = [
+      ["aws_vpc.main", AWS, { cidr_block: "10.0.0.0/16" }, {}],
+      ["aws_vpc_endpoint.ch", AWS, { vpc_endpoint_type: "Interface" },
+        { vpc_id: ["aws_vpc.main.id", "aws_vpc.main"],
+          service_name: ["clickhouse_service.main.private_endpoint_config.endpoint_service_id", "clickhouse_service.main"] }],
+      ["clickhouse_service.main", CH, { name: "main", cloud_provider: "aws", region: "us-east-1" }, {}],
+      ["clickhouse_service_private_endpoints_attachment.main", CH, {},
+        { service_id: ["clickhouse_service.main.id", "clickhouse_service.main"],
+          private_endpoint_ids: ["aws_vpc_endpoint.ch.id", "aws_vpc_endpoint.ch"] }]
+    ];
+    const m = parsePlan({
+      format_version: "1.2",
+      configuration: { root_module: { resources: items.map(([address, , , refs]) => {
+        const [type, name] = address.split(".");
+        const expressions = {};
+        for (const [k, r] of Object.entries(refs)) expressions[k] = { references: r };
+        return { address, type, name, mode: "managed", expressions };
+      }) } },
+      resource_changes: items.map(([address, provider_name, after]) => {
+        const [type, name] = address.split(".");
+        return { address, type, name, mode: "managed", provider_name, change: { actions: ["create"], after } };
+      })
+    }, "t");
+    const tree = buildTree(m, OPTS);
+    const boxes = new Set();
+    (function walk(g) { if (g.box && g.res) boxes.add(g.res.addr); if (g.box) g.children.forEach(walk); })(tree);
+    /* the lines the diagram considers when the endpoint is selected */
+    const ep = "aws_vpc_endpoint.ch";
+    const pairs = [[ep, "clickhouse_service.main"], ["clickhouse_service_private_endpoints_attachment.main", ep]];
+    eq(drop(pairs, m.anc, a => boxes.has(a)), [["clickhouse_service_private_endpoints_attachment.main", ep]]);
+  });
+});
+
 describe("providers: dispatch by provider, for any provider", () => {
   const registerProviders = app.fn("registerProviders");
   const getAllProviders = app.fn("getAllProviders");
@@ -881,8 +1128,10 @@ describe("providers: dispatch by provider, for any provider", () => {
       eq(m.byAddr[a].supported, true, a);
     }
     eq(m.byAddr["aws_vpc.main"].provider, "aws");
-    eq(m.diagnostics.filter(d => d.code === "provider" || d.code === "foreign").map(d => d.msg),
-       ["**random_id** \u00d7 1 \u2014 no provider plugin draws this type yet."]);
+    /* random_id comes from a Terraform utility provider: no warning */
+    eq(m.diagnostics.filter(d => d.code === "provider" || d.code === "foreign").map(d => d.msg), []);
+    eq(m.byAddr["random_id.suffix"].utility, true);
+    eq(m.byAddr["google_storage_bucket.b"].utility, undefined);
   });
 
   test("references resolve between resources of any provider, not only aws_ types", () => {
@@ -911,6 +1160,15 @@ describe("providers: dispatch by provider, for any provider", () => {
     eq(where["google_compute_subnetwork.sub"], "VPC net");
     eq(where["google_compute_instance.vm"], "Subnet sub 10.1.0.0/24");
     eq(where["aws_vpc.main"], "Region eu-west-1");
+  });
+
+  test("Terraform utility resources are hidden by default and drawn in a Terraform box when shown", () => {
+    const m = parsePlan(withVmRef(), "t");
+    m.resources.forEach(r => { r.enabledType = true; });
+    eq(placements(m)["random_id.suffix"], undefined);
+    const tree = buildTree(m, Object.assign({}, OPTS, { showUtility: true }));
+    eq(tree.children.map(c => c.label), ["AWS Cloud", "Google Cloud", "Terraform"]);
+    eq(placements(m, { showUtility: true })["random_id.suffix"], "Utility creates no infrastructure");
   });
 
   test("resources that use an aliased provider block receive that block's settings", () => {
@@ -1089,6 +1347,7 @@ describe("providers: placement goes through a checked, read-only API", () => {
     "passes a label that is not a string":   api => api.addContainer(api.region, { cls: "vpc", label: { toString: () => "<b>" } }),
     "names another provider's resource":     api => api.addContainer(api.region, { cls: "vpc", label: "x", resource: "aws_vpc.main" }),
     "sets a width out of range":             api => api.addContainer(api.region, { cls: "vpc", label: "x", maxW: 1e9 }),
+    "passes edges that is not a boolean":    api => api.addContainer(api.region, { cls: "vpc", label: "x", edges: "yes" }),
     "throws":                                () => { throw new Error("boom"); }
   })) {
     test(`placement that ${name}: reported, its boxes discarded, every resource drawn`, () => withFake(api => {
@@ -1352,6 +1611,7 @@ describe("providers: hooks receive frozen input; a failing hook is skipped and r
   const getAllProviders = app.fn("getAllProviders");
   const cliCommands = app.fn("cliCommands"), consoleLink = app.fn("consoleLink"), tileSubtitleFor = app.fn("tileSubtitleFor");
   const blockHeight = app.fn("blockHeight"), rulesSection = app.fn("rulesSection"), ruleKey = app.fn("ruleKey");
+  const summaryFor = app.fn("summaryFor");
   const setLinksEnabled = app.fn("setLinksEnabled");
   const seen = [];
 
@@ -1366,6 +1626,7 @@ describe("providers: hooks receive frozen input; a failing hook is skipped and r
     consoleUrl: () => { throw new Error("console broke"); },
     tileSubtitle: () => ({ toString: () => "<b>x</b>" }),
     sizing: { blockHeight: () => 1e9 },
+    summary: () => [{ label: "ok", value: "fine" }, { label: "<b>", value: { toString: () => "<i>" } }],
     rules: {
       ruleSet: () => ({ title: "Rules", name: "fw", ordered: false, note: "n", directions: [{ attr: "rules", inbound: true, peerHeading: "Source" }] }),
       describe: e => { if (e && e.boom) throw new Error("describe broke"); return { ports: 1, service: "", protocol: "", peer: "" }; },
@@ -1388,6 +1649,7 @@ describe("providers: hooks receive frozen input; a failing hook is skipped and r
       try { eq(consoleLink(r, m), null, "a throwing consoleUrl gives no link"); } finally { setLinksEnabled(false); }
       eq(tileSubtitleFor(r, "fw-1"), "fw-1", "a non-text tileSubtitle falls back to the value");
       eq(blockHeight(r), 26, "an absurd height falls back");
+      eq(summaryFor(r), [], "a summary with a non-text value is dropped whole");
       const sec = rulesSection(r);
       ok(sec && sec.body.includes("rules-cap"), "rules still drawn with fallbacks");
       eq(typeof ruleKey(r, { port: 22 }), "string");

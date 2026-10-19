@@ -20,11 +20,12 @@ terraform show -json plan.out > plan.json
 
 2. Open the project's index.html ([available as github page](https://dmkskd.github.io/tf-plan-view/))
 ```sh
-just open
+just open              # empty page
+just open plan.json    # page with plan.json loaded
 ```
 
 3. Load the generated `plan.json` with the **Load plan json** button or by dropping it on the
-page.
+page, unless `just open` loaded it.
 
 Plan files selected or dropped onto the page remain local and are not uploaded to a server.
 **Sample plan** loads
@@ -48,7 +49,7 @@ The optional `explain` command adds model-generated review annotations. See the 
 ## Things to know
 
 - Reads `terraform show -json` plan output. Containment is inferred from `configuration.root_module.resources[].expressions[*].references`.
-- AWS, plus a starter Google Cloud provider (networks, subnetworks, instances, buckets). Resources of other providers are reported, not drawn. See [Development](docs/DEVELOPMENT.md#providers) to add one.
+- AWS, ClickHouse Cloud, and a starter Google Cloud provider (networks, subnetworks, instances, buckets). Resources of other providers are reported, not drawn. See [Development](docs/DEVELOPMENT.md#providers) to add one.
 - Unrecognised resource types are drawn as dashed amber tiles and reported.
 - Unrecognised and unplaced resources are listed under Validation.
 

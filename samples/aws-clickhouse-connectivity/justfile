@@ -1,0 +1,48 @@
+# aws-clickhouse-connectivity: real AWS + ClickHouse Cloud. apply and destroy cost money.
+#
+# AWS credentials: the normal chain (~/.aws/credentials, env, SSO).
+# ClickHouse credentials: CLICKHOUSE_ORG_ID, CLICKHOUSE_CLOUD_API_KEY and
+# CLICKHOUSE_CLOUD_API_SECRET, from the environment or from a
+# .clickhouse.env file in this directory or any parent, e.g. ~/.clickhouse.env.
+
+set shell := ["bash", "-cu"]
+set dotenv-filename := ".clickhouse.env"
+
+default:
+    @just --list --unsorted
+
+# Install providers
+init:
+    terraform init
+
+# Plan against the real accounts (read-only)
+plan *args:
+    terraform plan -input=false -out=tfplan {{args}}
+
+# Write plan.json from a fresh plan, for tfplanview
+json *args: (plan args)
+    terraform show -json tfplan > plan.json
+
+# Create the stack. Run: just apply confirm
+apply confirm *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "Creates billable AWS and ClickHouse Cloud resources. Run: just apply confirm" >&2
+      exit 1
+    fi
+    terraform apply {{args}}
+
+# Query ClickHouse from EC2, and S3 from ClickHouse
+check:
+    ./check.sh
+
+# Delete everything. Run: just destroy confirm
+destroy confirm *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "Deletes the AWS and ClickHouse Cloud resources. Run: just destroy confirm" >&2
+      exit 1
+    fi
+    terraform destroy {{args}}

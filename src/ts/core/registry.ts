@@ -7,11 +7,11 @@
 // (no commands, no link, no rules, no container), not another provider's.
 import {
   ProviderPlugin, ProviderSettings, CatalogEntry, CliCommand, PlanResource, PlanModel
-} from "../types/index.js";
+, SummaryRow } from "../types/index.js";
 import { linksEnabled, guardedLink } from "./links.js";
 import { renderCommands } from "./shell.js";
 import { frozenProviderResource } from "./readonly.js";
-import { callHook, checkCommands, checkUrl, checkText, checkHeight } from "./hooks.js";
+import { callHook, checkCommands, checkUrl, checkText, checkHeight, checkSummary } from "./hooks.js";
 
 var providers: ProviderPlugin[] = [];
 
@@ -208,6 +208,19 @@ export function categoryLabels(): [string, string][] {
   return out;
 }
 
+/* One provider's own category labels, ending with "other". With no
+   provider, only "other". */
+export function categoryLabelsOf(p: ProviderPlugin | null): [string, string][] {
+  var out = ((p && p.categoryLabels) || []).filter(function(c: [string, string]){ return c[0] !== "other"; });
+  return out.concat([["other", "Not implemented"]]);
+}
+
+/* A category's colour as provider p defines it, else as the merged list does. */
+export function categoryColorOf(p: ProviderPlugin | null, cat: string): string | null {
+  if (p && p.categories && Object.prototype.hasOwnProperty.call(p.categories, cat)) return p.categories[cat];
+  return categoryColor(cat);
+}
+
 /* The provider-block settings passed to a provider's hooks. For a resource,
    the settings of the block it uses (r.providerBlock, aliases such as
    google.prod included), if that block belongs to provider p; otherwise
@@ -259,6 +272,15 @@ export function tileSubtitleFor(r: PlanResource, value: string): string {
   if (!p || !p.tileSubtitle) return value;
   var pl = p;
   return callHook(p, "tileSubtitle", null, function(){ return pl.tileSubtitle!(frozenProviderResource(r), value); }, checkText(200), value);
+}
+
+/* Rows the provider works out for the hover card; none when it has no
+   summary hook or the hook fails. */
+export function summaryFor(r: PlanResource): SummaryRow[] {
+  var p = getProviderForResource(r);
+  if (!p || !p.summary) return [];
+  var pl = p;
+  return callHook(p, "summary", null, function(){ return pl.summary!(frozenProviderResource(r)); }, checkSummary, []);
 }
 
 export function blockHeight(r: PlanResource): number {

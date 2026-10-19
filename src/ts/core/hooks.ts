@@ -7,10 +7,10 @@
 // most once per provider and hook. The callers (core/registry.ts,
 // core/rules.ts) pass frozen inputs from core/readonly.ts.
 //
-// Used for cli, consoleUrl, tileSubtitle, sizing.blockHeight and the rules
-// hooks. Placement is validated separately, in core/placement.ts.
+// Used for cli, consoleUrl, tileSubtitle, summary, sizing.blockHeight and
+// the rules hooks. Placement is validated separately, in core/placement.ts.
 import { state } from "./state.js";
-import { PlanModel, ProviderPlugin, ProviderCommand, RuleListSpec, RuleDescription } from "../types/index.js";
+import { PlanModel, ProviderPlugin, ProviderCommand, RuleListSpec, RuleDescription, SummaryRow } from "../types/index.js";
 
 export var REJECTED = {} as any;   /* returned (or thrown) by a check to reject a result */
 
@@ -52,6 +52,19 @@ function optText(v: unknown, max: number): string | null | undefined {
 
 export function checkText(max: number): (v: unknown) => string {
   return function(v: unknown){ return isText(v, max) ? v : REJECTED; };
+}
+
+export var MAX_SUMMARY_ROWS = 8;
+
+export function checkSummary(v: unknown): SummaryRow[] {
+  if (!Array.isArray(v) || v.length > MAX_SUMMARY_ROWS) return REJECTED;
+  var out: SummaryRow[] = [];
+  for (var i = 0; i < v.length; i++){
+    var row: any = v[i];
+    if (!row || typeof row !== "object" || !isText(row.label, 40) || !isText(row.value, 200)) return REJECTED;
+    out.push({ label: row.label, value: row.value });
+  }
+  return out;
 }
 
 export function checkUrl(v: unknown): string | null {

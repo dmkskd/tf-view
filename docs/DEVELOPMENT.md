@@ -130,7 +130,7 @@ To add a provider:
      `--cat-*` (categories), `--box-*` (core's boxes) and `--accent`, not after
      a cloud
    - optional `icons`: glyphs as SVG path data, from which core builds symbols
-   - `cloudLabel`; optional `globalNote`, `unplacedNote`, `cliName`, `consoleName`
+   - `cloudLabel`; optional `regionNote`, `globalNote`, `unplacedNote`, `cliName`, `consoleName`
    - `settingKeys`: the provider-block arguments the hooks receive
      (`["region"]`), read from the block each resource uses (aliased and
      module blocks included). Registration refuses keys whose names suggest a
@@ -147,13 +147,14 @@ To add a provider:
      returns `{containerOf}`, which answers with the references
      `addContainer` returned. A resource that a box draws (`resource` in the
      container spec) is not also drawn as a tile; every other resource is
-   - optional `tileSubtitle`, `sizing`
+   - optional `tileSubtitle`, `summary` (rows at the top of the hover card,
+     worked out from several attributes), `sizing`
 3. Add the plugin to the list in `src/ts/providers/index.ts`.
 
 Every hook receives a `ProviderResource`: a frozen, redacted copy with only the
 fields a provider may read, with values of type `JsonValue` (read them with the
 SDK functions `asText`, `valueAt` and `asList`). Core calls `cli`,
-`consoleUrl`, `tileSubtitle`, `sizing` and `rules` through `core/hooks.ts`: a
+`consoleUrl`, `tileSubtitle`, `summary`, `sizing` and `rules` through `core/hooks.ts`: a
 hook that throws or returns a value that fails validation is skipped for that
 call, the caller uses a neutral result, and the plan gets an error diagnostic.
 Placement is validated in `core/placement.ts`.

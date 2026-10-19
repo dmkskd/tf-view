@@ -1,6 +1,6 @@
 import { $, html, type SafeHtml } from "../core/util.js";
 import { categoryColor, blockHeight, typeWithoutPrefix, tileSubtitleFor, getProviderForResource } from "../core/registry.js";
-import { TW, TH, tileHeight, setTileHeight, buildTree } from "../core/layout.js";
+import { TW, TH, tileHeight, setTileHeight, buildTree, dropCoveredBoxEdges } from "../core/layout.js";
 import { fitCanvas, applyTransform } from "./iso.js";
 import { sameVal, changedKeys } from "../core/diff.js";
 import { state, setSelected, notifySelect, notifyRender } from "../core/state.js";
@@ -149,6 +149,7 @@ function render(): void {
         </div>
         <i class="fc n"></i><i class="fc w"></i>
       `.toString();
+      if (g.edges) d.dataset.edges = "1";
       if (g.res){
         const res = g.res;
         d.dataset.addr = res.addr;
@@ -164,7 +165,7 @@ function render(): void {
       var n = document.createElement("div");
       var isChanged = r.action !== "no-op" && r.action !== "read";
       n.className = "node act-" + r.action + (isChanged ? " is-changed" : "") +
-                    (r.supported ? "" : " unsup");
+                    (r.supported || r.utility ? "" : " unsup");
       if (isChanged) n.style.setProperty("--pulse", (ACTION_COLOR as any)[r.action]);
       n.style.left = g.x + "px"; n.style.top = g.y + "px";
       n.style.width = TW + "px"; n.style.height = TH + "px";
@@ -301,8 +302,9 @@ function drawEdges(): void {
     if (!state.nodeEls[r.addr]) return;
     resolveEdgeTargets(r.refs).forEach(function(a: string){
       if (encloses(r.addr, a)) return;                       /* nesting shows it */
-      if (state.nodeEls[r.addr].classList.contains("grp")) return; /* containers are */
-      if (state.nodeEls[a].classList.contains("grp")) return;      /* highlighted instead */
+      /* containers are highlighted instead, unless the provider asked for lines */
+      if (state.nodeEls[r.addr].classList.contains("grp") && !state.nodeEls[r.addr].dataset.edges) return;
+      if (state.nodeEls[a].classList.contains("grp") && !state.nodeEls[a].dataset.edges) return;
       if (state.opts.edges === "select"){
         if (!selected) return;
         if (r.addr !== selected && a !== selected) return;
@@ -312,6 +314,9 @@ function drawEdges(): void {
       seen[key] = true;
       show.push([r.addr, a]);
     });
+  });
+  show = dropCoveredBoxEdges(show, state.model.anc || {}, function(a: string){
+    return !!state.nodeEls[a] && state.nodeEls[a].classList.contains("grp");
   });
   show.forEach(function(pair: [string, string]){
     var ba = boxOf(pair[0]), bb = boxOf(pair[1]);

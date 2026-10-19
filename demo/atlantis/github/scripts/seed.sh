@@ -2,9 +2,9 @@
 # Puts the base stack on the demo repo's main branch (or updates it when the stack changed), creates the
 # gh-pages branch for the reports and turns GitHub Pages on. Safe to re-run.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "${DEMO_DIR:-$(dirname "$0")/..}"   # DEMO_DIR: another demo folder using these scripts
 set -a; . ./.env; set +a
-SHARED=../shared
+SHARED=${SHARED:-../shared}   # the stack: infra/ and atlantis.yaml
 URL="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 git() { command git -c user.name=demo -c user.email=demo@example.com "$@"; }
@@ -16,7 +16,7 @@ rm -rf infra atlantis.yaml
 cp -R "$OLDPWD/$SHARED/infra" "$OLDPWD/$SHARED/atlantis.yaml" .
 git add -A
 if git diff --cached --quiet; then echo "main is up to date"; else
-  git commit -qm "Base stack: network and a legacy bucket"
+  git commit -qm "${SEED_MESSAGE:-Base stack: network and a legacy bucket}"
   git push -q origin main
   echo "pushed the base stack to main"
 fi

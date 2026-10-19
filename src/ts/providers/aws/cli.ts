@@ -77,6 +77,15 @@ function awsCommands(r: ProviderResource, settings: Readonly<ProviderSettings>):
       add("Endpoint ENI addresses", aws("ec2", "describe-network-interfaces").concat(reg,
           ["--filters", "Name=description,Values=*<vpce-id>*", "--query", "NetworkInterfaces[].PrivateIpAddress"]));
       break;
+    case "aws_vpc_endpoint_service":
+      add("Describe", aws("ec2", "describe-vpc-endpoint-service-configurations").concat(reg,
+          ["--filters", "Name=service-name,Values=" + val("service_name", "<service>")]));
+      add("Connections", aws("ec2", "describe-vpc-endpoint-connections").concat(reg,
+          ["--filters", "Name=service-id,Values=<vpce-svc-id>"]));
+      break;
+    case "aws_kinesis_stream":
+      add("Describe", aws("kinesis", "describe-stream-summary").concat(reg, ["--stream-name", val("name", "<stream>")]));
+      break;
     case "aws_eip":
       add("Describe", aws("ec2", "describe-addresses").concat(reg, byTag));
       break;

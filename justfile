@@ -77,9 +77,19 @@ check: typecheck
     @for f in `find scripts tools -name "*.js"`; do node --check "$f" || exit 1; done
     @echo "✅ All files passed syntax verification!"
 
-# Build and open the self-contained app directly in the default browser
-open query="": build
-    @url="file://$PWD/dist/index.html{{ if query == "" { "" } else { "?" + query } }}"; open "$url" 2>/dev/null || xdg-open "$url" 2>/dev/null
+# Build and open the app in the default browser, with a plan JSON file loaded if one is given
+open plan="": build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    page="dist/index.html"
+    plan="{{plan}}"
+    if [ -n "$plan" ]; then
+      page="dist/open.html"
+      node demo/atlantis/shared/inject.js dist/index.html "$plan" "$(basename "$plan")" > "$page"
+    fi
+    url="file://$PWD/$page"
+    echo "Opening $url"
+    if command -v open >/dev/null; then open "$url"; else xdg-open "$url"; fi
 
 # Re-extract clean modular files from pristine index.html
 split:

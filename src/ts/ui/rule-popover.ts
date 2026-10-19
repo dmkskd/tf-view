@@ -1,5 +1,6 @@
 import { $, html, raw, type SafeHtml } from "../core/util.js";
 import { ruleSetFor, describeRules, describeRule, ruleHoverRow } from "../core/rules.js";
+import { summaryFor } from "../core/registry.js";
 import { sameVal, matchRules } from "../core/diff.js";
 import { attrKind } from "../core/schema.js";
 import { icoSvg } from "./diagram.js";
@@ -74,7 +75,16 @@ function attrPreviewVal(v: any): string | null {
 
 function attrPreviewRows(r: PlanResource): SafeHtml {
   var keys = (r.spec && r.spec.preview) || [];
-  var rows = keys.map(function(k: string){
+  /* the provider's worked-out values first, then the catalog's attributes */
+  var summary: (SafeHtml | null)[] = summaryFor(r).map(function(row){
+    return html`
+      <div class="rp-attr">
+        <span class="rp-k">${row.label}</span>
+        <span class="rp-v">${row.value}</span>
+      </div>
+    `;
+  });
+  var rows = summary.concat(keys.map(function(k: string){
     if (r.sensitive && (r.sensitive as any)[k]) return null;
     var known = r.unknown && (r.unknown as any)[k] === true;
     var text = known ? "known after apply" : attrPreviewVal(r.attrs ? r.attrs[k] : undefined);
@@ -85,7 +95,7 @@ function attrPreviewRows(r: PlanResource): SafeHtml {
         <span class="rp-v${known ? " unknown" : ""}">${text}</span>
       </div>
     `;
-  });
+  }));
   return html`${rows}`;
 }
 
@@ -103,22 +113,21 @@ function showRulePop(addr: string, x: number, y: number): void {
   if (!r) return;
   var set = ruleSetFor(r);
 
-  var body: SafeHtml = html``;
+  /* A resource can have both: a ClickHouse service shows its size and
+     scaling, then its IP access list. */
+  var rows = attrPreviewRows(r);
+  var body: SafeHtml = rows.value ? html`<div class="rp-attrs">${rows}</div>` : html``;
   if (set){
     var rs = set;
     body = html`
+      ${body}
       ${rs.directions.map(function(d: RuleListDirection){
         return html`
-          <div class="rp-dir">${d.inbound ? "inbound" : "outbound"}</div>
+          <div class="rp-dir">${rows.value ? rs.name + " · " : ""}${d.inbound ? "inbound" : "outbound"}</div>
           ${raw(popRuleLines(r!, rs, d))}`;
       })}
       <div class="rp-foot">${rs.note}</div>
     `;
-  } else {
-    var rows = attrPreviewRows(r);
-    if (rows.value) {
-      body = html`<div class="rp-attrs">${rows}</div>`;
-    }
   }
 
   var llmSection: SafeHtml = html``;
@@ -141,7 +150,7 @@ function showRulePop(addr: string, x: number, y: number): void {
   popEl.innerHTML = html`
     <div class="rp-title">
       ${icoSvg(r.spec, 14)}
-      ${set ? set.name : ((r.spec && r.spec.label) || r.type)}
+      ${set && !rows.value ? set.name : ((r.spec && r.spec.label) || r.type)}
       <b>${r.name}</b>
     </div>
     ${llmSection}

@@ -1,5 +1,7 @@
 import { $, html, raw, emphasisHtml, type SafeHtml } from "../core/util.js";
-import { catalogEntry, categoryColor, categoryLabels, typeWithoutPrefix } from "../core/registry.js";
+import { catalogEntry, categoryLabels, categoryLabelsOf, categoryColorOf, typeWithoutPrefix,
+         getAllProviders, getProviderForResource } from "../core/registry.js";
+import type { ProviderPlugin } from "../types/index.js";
 import { schemaFit } from "../core/schema.js";
 import { state, onRender, setMode, onSelect } from "../core/state.js";
 import { ACTION_COLOR, render, select, icoSvg, changedKeys } from "./diagram.js";
@@ -159,12 +161,14 @@ function panelCoverage(){
   var total = model.resources.length;
   var sup = model.resources.filter(function(r){ return r.supported; }).length;
   var assoc = model.resources.filter(function(r){ return r.supported && r.kind === "assoc"; }).length;
-  var un = total - sup;
+  var util = model.resources.filter(function(r){ return r.utility; }).length;
+  var un = total - sup - util;
   var hiddenAssoc = opts.showAssoc ? 0 : assoc;
   /* an unsupported type is still a (generic) tile while "show unsupported" is
      on, so it only counts as missing when that option is off */
   var hiddenUnsup = opts.showUnsup ? 0 : un;
-  var missing = hiddenUnsup + hiddenAssoc;
+  var hiddenUtil = opts.showUtility ? 0 : util;
+  var missing = hiddenUnsup + hiddenAssoc + hiddenUtil;
 
   var block = $("covBlock");
   if (!block) return;
@@ -180,6 +184,7 @@ function panelCoverage(){
     var segs: [number, string, string][] = [
       [total - missing, "var(--create)", "resources drawn as tiles"],
       [hiddenAssoc, "var(--accent)", "association resources hidden (open the list below)"],
+      [hiddenUtil, "var(--muted)", "Terraform utility resources hidden (open the list below)"],
       [hiddenUnsup, "var(--warn)", "resources of a type with no tile yet, hidden (open the list below)"]
     ];
     segs.forEach(function(seg){
@@ -196,14 +201,18 @@ function panelCoverage(){
 
   /* what is in each group, so the numbers can be opened up and checked */
   var isHiddenAssoc = function(r: any){ return !!hiddenAssoc && r.supported && r.kind === "assoc"; };
-  var isHiddenUnsup = function(r: any){ return !!hiddenUnsup && !r.supported; };
-  var drawn = model.resources.filter(function(r: any){ return !isHiddenAssoc(r) && !isHiddenUnsup(r); });
+  var isHiddenUnsup = function(r: any){ return !!hiddenUnsup && !r.supported && !r.utility; };
+  var isHiddenUtil = function(r: any){ return !!hiddenUtil && r.utility; };
+  var drawn = model.resources.filter(function(r: any){ return !isHiddenAssoc(r) && !isHiddenUnsup(r) && !isHiddenUtil(r); });
   var groups: {key: string; sw: string; label: string; note: string; items: any[]; goto: boolean; action?: string}[] = [
     {key: "drawn", sw: "sw-ok", label: "drawn as tiles", note: "", items: drawn, goto: true}
   ];
   if (hiddenAssoc) groups.push({key: "assoc", sw: "sw-net", label: "association resources, hidden",
     note: "These only link two other resources (a route table to a subnet, say), so they are off by default.",
     items: model.resources.filter(isHiddenAssoc), goto: false, action: "Show them"});
+  if (hiddenUtil) groups.push({key: "util", sw: "sw-util", label: "Terraform utility resources, hidden",
+    note: "time_sleep, random_password, null_resource and similar create no infrastructure, so they are off by default.",
+    items: model.resources.filter(isHiddenUtil), goto: false, action: "Show them"});
   if (hiddenUnsup) groups.push({key: "unsup", sw: "sw-warn", label: "type not implemented, hidden",
     note: "No tile for these types yet. \u201cShow unsupported as tiles\u201d draws them generically.",
     items: model.resources.filter(isHiddenUnsup), goto: false, action: "Show them"});
@@ -240,6 +249,10 @@ function panelCoverage(){
         opts.showAssoc = true;
         var cb = $("optAssoc") as HTMLInputElement | null;
         if (cb) cb.checked = true;
+      } else if (b.dataset.act === "util"){
+        opts.showUtility = true;
+        var ct = $("optUtility") as HTMLInputElement | null;
+        if (ct) ct.checked = true;
       } else {
         opts.showUnsup = true;
         var cu = $("optUnsup") as HTMLInputElement | null;
@@ -266,39 +279,76 @@ function panelTypes(): void {
   var tc = $("typeCount");
   if (tc) tc.textContent = String(types.length);
 
-  var buckets: Record<string, string[]> = {};
+  const f = $("filters");
+  if (!f) return;
+  f.innerHTML = "";
+
+  /* each type's provider, from a resource of that type; "" for none */
+  var providerOfType: Record<string, ProviderPlugin | null> = {};
+  model.resources.forEach(function(r: any){
+    if (!(r.type in providerOfType)) providerOfType[r.type] = getProviderForResource(r);
+  });
+  var byProvider: Record<string, string[]> = {};
   types.forEach(function(t: string){
+    var p = providerOfType[t];
+    var id = p ? p.id : "";
+    (byProvider[id] = byProvider[id] || []).push(t);
+  });
+  var groups = getAllProviders().filter(function(p: ProviderPlugin){ return byProvider[p.id]; })
+    .map(function(p: ProviderPlugin){ return {p: p as ProviderPlugin | null, list: byProvider[p.id]}; });
+  if (byProvider[""]) groups.push({p: null, list: byProvider[""]});
+
+  /* one provider: categories only, as before */
+  if (groups.length <= 1){
+    typeCategories(f, model, types, null, categoryLabels());
+    return;
+  }
+  groups.forEach(function(g){
+    var label = g.p ? g.p.name : "Other providers";
+    typeHeading(f, model, g.list, "prov", null, label);
+    typeCategories(f, model, g.list, g.p, categoryLabelsOf(g.p));
+  });
+}
+
+function typesOn(model: any, list: string[]): boolean {
+  return list.every(function(t: string){
+    return model.resources.some(function(r: any){ return r.type === t && r.enabledType !== false; });
+  });
+}
+
+/* A heading that shows or hides every type in list. */
+function typeHeading(f: HTMLElement, model: any, list: string[], cls: string, dotBg: string | null, label: string): void {
+  var n = list.reduce(function(sum: number, t: string){ return sum + model.typeCounts[t]; }, 0);
+  var allOn = typesOn(model, list);
+  var head = document.createElement("button");
+  head.className = cls + (allOn ? "" : " off");
+  head.innerHTML = html`
+    ${dotBg ? html`<span class="dot" style="background:${dotBg}"></span>` : null}
+    ${label}
+    <span class="ct">${n}</span>
+  `.toString();
+  head.title = (allOn ? "Hide" : "Show") + " every " + label.toLowerCase() + " resource";
+  head.addEventListener("click", function(){ setTypes(list, !allOn); });
+  f.appendChild(head);
+}
+
+/* The types in list, under the category headings in labels. */
+function typeCategories(f: HTMLElement, model: any, list: string[], p: ProviderPlugin | null,
+                        labels: [string, string][]): void {
+  var buckets: Record<string, string[]> = {};
+  list.forEach(function(t: string){
     var spec = catalogEntry(t);
     var cat = spec ? (spec.cat || "other") : "other";
     (buckets[cat] = buckets[cat] || []).push(t);
   });
 
-  const f = $("filters");
-  if (!f) return;
-  f.innerHTML = "";
+  labels.forEach(function(c: [string, string]){
+    var catList = buckets[c[0]];
+    if (!catList || !catList.length) return;
+    var dotBg = c[0] === "other" ? "var(--warn)" : (categoryColorOf(p, c[0]) || "var(--warn)");
+    typeHeading(f, model, catList, "cat", dotBg, c[1]);
 
-  categoryLabels().forEach(function(c: [string, string]){
-    var list = buckets[c[0]];
-    if (!list || !list.length) return;
-
-    var n = list.reduce(function(sum: number, t: string){ return sum + model.typeCounts[t]; }, 0);
-    var allOn = list.every(function(t: string){
-      return model.resources.some(function(r: any){ return r.type === t && r.enabledType !== false; });
-    });
-
-    var head = document.createElement("button");
-    head.className = "cat" + (allOn ? "" : " off");
-    var dotBg = c[0] === "other" ? "var(--warn)" : (categoryColor(c[0]) || "var(--warn)");
-    head.innerHTML = html`
-      <span class="dot" style="background:${dotBg}"></span>
-      ${c[1]}
-      <span class="ct">${n}</span>
-    `.toString();
-    head.title = (allOn ? "Hide" : "Show") + " every " + c[1].toLowerCase() + " resource";
-    head.addEventListener("click", function(){ setTypes(list, !allOn); });
-    f.appendChild(head);
-
-    list.forEach(function(t: string){
+    catList.forEach(function(t: string){
       var spec = catalogEntry(t);
       var on = model.resources.some(function(r: any){ return r.type === t && r.enabledType !== false; });
       var row = document.createElement("label");

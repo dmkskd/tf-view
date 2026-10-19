@@ -31,10 +31,10 @@ and `asList`, for example `asText(valueAt(r.attrs, "tags", "Name"))`. Hooks do
 not receive other providers' resources or core's own objects, and provider
 files may not reference the DOM (see below).
 
-Core calls the `cli`, `consoleUrl`, `tileSubtitle`, `sizing` and `rules` hooks
+Core calls the `cli`, `consoleUrl`, `tileSubtitle`, `summary`, `sizing` and `rules` hooks
 through `core/hooks.ts`. If a hook throws, or returns a value that fails
 validation, core uses a neutral result for that call (no commands, no link, the
-unformatted value) and adds an error diagnostic to the plan. If placement
+unformatted value, no summary rows) and adds an error diagnostic to the plan. If placement
 throws or makes an invalid call, core discards the provider's boxes and draws
 each of its resources as a tile, so every visible resource still appears in the
 diagram.

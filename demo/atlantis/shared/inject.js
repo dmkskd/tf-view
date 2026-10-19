@@ -1,8 +1,14 @@
 // Embeds a `terraform show -json` plan into the tfplanview single-file HTML.
 // Mirrors inject_plan() in cli/src/main.rs.
-// Usage: node inject.js <template.html> <plan.json> <label> > report.html
+// Usage: node inject.js <template.html> <plan.json | directory with plan.json> <label> > report.html
 const fs = require('fs');
-const [tpl, planFile, label] = process.argv.slice(2);
+const path = require('path');
+const [tpl, planArg, label] = process.argv.slice(2);
+const planFile = fs.existsSync(planArg) && fs.statSync(planArg).isDirectory() ? path.join(planArg, 'plan.json') : planArg;
+if (!fs.existsSync(planFile)) {
+  console.error(`inject.js: ${planFile} not found (run \`just json\` in the sample directory first)`);
+  process.exit(1);
+}
 const html = fs.readFileSync(tpl, 'utf8');
 const plan_raw = fs.readFileSync(planFile, 'utf8');
 const REDACTED = '(sensitive)';

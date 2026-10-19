@@ -157,6 +157,7 @@
   .sw.sw-ok{background:var(--create);}
   .sw.sw-warn{background:var(--warn);}
   .sw.sw-net{background:var(--cat-net);}
+  .sw.sw-util{background:var(--muted);}
 
   /* diagnostics */
   .diag{display:flex; flex-direction:column; gap:7px;}
@@ -220,6 +221,19 @@
   .filters .cat .dot{width:7px; height:7px; border-radius:2px; flex:none;}
   .filters .cat .ct{margin-left:auto; font-family:"IBM Plex Mono",monospace;
     font-size:10.5px; font-weight:400; letter-spacing:0; color:var(--faint);}
+  /* provider heading, above its categories, when a plan has several providers */
+  .filters .prov{
+    display:flex; align-items:center; gap:7px; width:100%; text-align:left;
+    margin:16px 0 0; padding:6px 8px 6px 0; background:none; border:0;
+    border-bottom:1px solid var(--line); cursor:pointer;
+    font-family:"Archivo",sans-serif; font-size:12px; font-weight:700; color:var(--ink);
+  }
+  .filters .prov:first-child{margin-top:0;}
+  .filters .prov:hover{color:var(--accent);}
+  .filters .prov.off{opacity:.5;}
+  .filters .prov .ct{margin-left:auto; font-family:"IBM Plex Mono",monospace;
+    font-size:10.5px; font-weight:400; color:var(--faint);}
+  .filters .prov + .cat{margin-top:8px;}
   .flt{
     display:grid; grid-template-columns:16px 18px 1fr auto; align-items:center; gap:9px;
     padding:6px 8px; border-radius:7px; cursor:pointer; font-size:13px;

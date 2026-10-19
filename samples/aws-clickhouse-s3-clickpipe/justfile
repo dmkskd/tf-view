@@ -1,0 +1,83 @@
+# aws-clickhouse-s3-clickpipe: real AWS + ClickHouse Cloud. apply and destroy cost money.
+#
+# AWS credentials: the default chain (~/.aws/credentials, env, SSO).
+# ClickHouse credentials: CLICKHOUSE_ORG_ID, CLICKHOUSE_CLOUD_API_KEY and
+# CLICKHOUSE_CLOUD_API_SECRET, from the environment or from a
+# .clickhouse.env file in this directory or any parent, e.g. ~/.clickhouse.env.
+
+set shell := ["bash", "-cu"]
+set dotenv-filename := ".clickhouse.env"
+
+default:
+    @just --list --unsorted
+
+# Install providers
+init:
+    terraform init
+
+# Plan against the real accounts (read-only)
+plan *args:
+    terraform plan -input=false -out=tfplan {{args}}
+
+# Write plan.json from a fresh plan, for tfplanview
+json *args: (plan args)
+    terraform show -json tfplan > plan.json
+
+# Create the stack. Run: just apply confirm
+apply confirm *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "Creates billable AWS and ClickHouse Cloud resources. Run: just apply confirm" >&2
+      exit 1
+    fi
+    terraform apply {{args}}
+
+# Upload one JSON file with n events from the EC2 client to S3
+produce n="100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bucket=$(terraform output -raw events_bucket)
+    ./ssm.sh <<SCRIPT
+    set -e
+    f=/tmp/events-\$(date -u +%Y%m%dT%H%M%S).json
+    python3 - "{{n}}" > "\$f" <<'PY'
+    import json, random, sys, uuid, datetime
+    types = ["page_view", "click", "signup", "purchase"]
+    for _ in range(int(sys.argv[1])):
+        print(json.dumps({
+            "id": str(uuid.uuid4()),
+            "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            "event_type": random.choice(types),
+            "user_id": random.randint(1, 1000),
+            "value": round(random.uniform(0, 100), 2),
+        }))
+    PY
+    aws s3 cp --no-progress "\$f" "s3://$bucket/events/\$(basename \$f)"
+    SCRIPT
+
+# Query the events table from the EC2 client over PrivateLink
+check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host=$(terraform output -raw clickhouse_host)
+    password=$(terraform output -raw clickhouse_password)
+    ./ssm.sh <<SCRIPT
+    q() { curl -sS --fail-with-body --user 'default:$password' "https://$host:8443/" --data-binary "\$1"; }
+    q "SELECT count() AS rows, max(ts) AS latest FROM events FORMAT PrettyCompactMonoBlock"
+    q "SELECT event_type, count() AS n, round(avg(value), 2) AS avg_value FROM events GROUP BY event_type ORDER BY n DESC FORMAT PrettyCompactMonoBlock"
+    SCRIPT
+
+# ClickPipe state as reported by ClickHouse Cloud
+state:
+    terraform apply -refresh-only -auto-approve -target=clickhouse_clickpipe.events >/dev/null && terraform output -raw clickpipe_state; echo
+
+# Delete everything. Run: just destroy confirm
+destroy confirm *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{confirm}}" != "confirm" ]; then
+      echo "Deletes the AWS and ClickHouse Cloud resources. Run: just destroy confirm" >&2
+      exit 1
+    fi
+    terraform destroy {{args}}

@@ -1,0 +1,16 @@
+# aws-clickhouse-plan-only sample. Plan only: both providers use fake credentials.
+
+default:
+    @just --list --unsorted
+
+# Install providers (run once, or after changing main.tf)
+init:
+    terraform init
+
+# Plan without calling AWS or ClickHouse Cloud
+plan:
+    terraform plan -input=false -refresh=false -out=tfplan
+
+# Write plan.json from a fresh plan
+json: plan
+    terraform show -json tfplan > plan.json

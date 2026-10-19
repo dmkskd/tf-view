@@ -182,6 +182,8 @@ export interface PlanResource {
   spec?: CatalogEntry | null;
   kind?: string;
   foreign?: boolean;
+  /* from a Terraform utility provider (time, random, null, ...), see core/utility.ts */
+  utility?: boolean;
   supported?: boolean;
   unsupported?: boolean;
   enabledType?: boolean;
@@ -311,6 +313,7 @@ export interface LayoutGroup {
   x: number;
   y: number;
   res?: PlanResource;
+  edges?: boolean;
   _rows?: LayoutRow[];
 }
 
@@ -443,6 +446,7 @@ export interface ContainerSpec {
   stack?: boolean;        /* lay children out in one column, in order */
   breakBefore?: boolean;  /* place this box at the start of a new row */
   resource?: string;      /* address of the resource this box draws, if any */
+  edges?: boolean;        /* reference lines connect to this box (by default a box is only highlighted) */
 }
 
 /* The interface a provider's placement receives: frozen, redacted copies of
@@ -464,6 +468,12 @@ export interface PlacementSession {
 
 export interface ProviderPlacement {
   start: (api: PlacementApi) => PlacementSession;
+}
+
+/* One row of a hover card: plain text, escaped by core. */
+export interface SummaryRow {
+  label: string;
+  value: string;
 }
 
 export interface ProviderSizing {
@@ -505,6 +515,7 @@ export interface ProviderPlugin {
   categories: Record<string, string>;
   categoryLabels: [string, string][];
   cloudLabel: string;          /* label of the provider's outermost box: "AWS Cloud" */
+  regionNote?: string;         /* text beside the "Region" box's label when the provider block sets no region */
   globalNote?: string;         /* text beside the "Global" box's label */
   unplacedNote?: string;       /* text beside the "Unplaced" box's label */
   settingKeys?: string[];      /* provider-block arguments the hooks receive: ["region"] */
@@ -518,6 +529,10 @@ export interface ProviderPlugin {
   /* formats a tile's second line (the value of catalog `sub`), e.g.
      "com.amazonaws.eu-west-1.s3" -> "s3" */
   tileSubtitle?: (r: ProviderResource, value: string) => string;
+  /* Values worked out from several attributes, shown at the top of the
+     resource's hover card, above its catalog preview: a service's replicas
+     and total memory. At most MAX_SUMMARY_ROWS (core/hooks.ts). */
+  summary?: (r: ProviderResource) => SummaryRow[];
   sizing?: ProviderSizing;
   rules?: ProviderRules;
   placement: ProviderPlacement;
@@ -526,6 +541,7 @@ export interface ProviderPlugin {
 export interface RenderOptions {
   showAssoc: boolean;
   showUnsup: boolean;
+  showUtility: boolean;
   edges: string;
   mode: string;
   render: "diagram" | "text";

@@ -4,6 +4,7 @@ import {
 } from "./registry.js";
 import { redact, unionMask, marksAnything, expandWholeMask, redactConfig, SENSITIVE } from "./redact.js";
 import { sameVal } from "./diff.js";
+import { isUtilityProviderName, isUtilityType } from "./utility.js";
 import { buildConfigIndex, refsFor, addStateEdges, listRefs, moduleOf, cfgKey, ConfigIndex } from "./references.js";
 import {
   PlanModel, PlanResource, ActionType, TerraformPlanJson, DiagnosticItem,
@@ -122,6 +123,7 @@ function readProviders(plan: TerraformPlanJson, out: PlanModel): void {
     var name = pcfg[k].name || k;
     var p = getProviderForProviderName(pcfg[k].full_name || name);
     if (!p){
+      if (isUtilityProviderName(pcfg[k].full_name)) return;
       var shown = pcfg[k].full_name || name;
       if (unsupported.indexOf(shown) < 0) unsupported.push(shown);
       return;
@@ -245,6 +247,7 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, cfg: ConfigIndex
     if (blockKey && out.providerBlocks[blockKey].provider !== plugin!.id) blockKey = undefined;
     var spec = plugin ? catalogEntry(rc.type, plugin) : null;
     var foreign = !plugin;
+    var utility = foreign && (rc.provider_name ? isUtilityProviderName(rc.provider_name) : isUtilityType(rc.type));
 
     /* Redaction, once per resource: before and after are redacted with the
        union of both masks. Keys whose sensitive value changed are recorded
@@ -282,6 +285,7 @@ function readResources(plan: TerraformPlanJson, out: PlanModel, cfg: ConfigIndex
       module: rc.module_address || moduleOf(rc.address),
       refs: refsFor(cfg, rc.address, allAddrs),
       foreign: foreign,
+      utility: utility || undefined,
       enabledType: true,
       llmInsight: (out.llmReview && out.llmReview.resources && out.llmReview.resources[rc.address]) || null
     };
@@ -308,6 +312,7 @@ function normaliseRefs(out: PlanModel): void {
 function reportUnsupported(out: PlanModel): void {
   var unsup: Record<string, number> = {}, foreign: Record<string, number> = {};
   out.resources.forEach(function(r: PlanResource){
+    if (r.utility) return;
     if (r.foreign) foreign[r.type] = (foreign[r.type] || 0) + 1;
     else if (!r.supported) unsup[r.type] = (unsup[r.type] || 0) + 1;
   });

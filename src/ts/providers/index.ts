@@ -6,5 +6,6 @@
 import { registerProviders } from "../core/registry.js";
 import { awsProvider } from "./aws/index.js";
 import { gcpProvider } from "./gcp/index.js";
+import { clickhouseProvider } from "./clickhouse/index.js";
 
-registerProviders([awsProvider, gcpProvider]);
+registerProviders([awsProvider, gcpProvider, clickhouseProvider]);

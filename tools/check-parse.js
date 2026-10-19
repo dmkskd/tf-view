@@ -21,6 +21,7 @@ const { parsePlan } = app.exports;
 const plans = {
   sample: app.samplePlan(),
   mixed: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/mixed-aws-gcp/plan.json", "utf8")),
+  clickhouse: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/aws-clickhouse-plan-only/plan.json", "utf8")),
   statefile: {format_version:"1.0", values:{root_module:{resources:[]}}},
   garbage: {hello:"world"},
   foreignprov: {format_version:"1.2", resource_changes:[

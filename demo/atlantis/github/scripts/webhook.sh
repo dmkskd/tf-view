@@ -3,7 +3,7 @@
 # webhook.sh off   remove it
 # Uses your own gh login: the demo token has no permission to manage webhooks.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "${DEMO_DIR:-$(dirname "$0")/..}"   # DEMO_DIR: another demo folder using these scripts
 set -a; . ./.env; set +a
 gh() { env -u GH_TOKEN gh "$@"; }
 ID=$(gh api "repos/${GH_REPO}/hooks" 2>/dev/null | jq -r --arg u "${SMEE_URL}" '[.[] | select(.config.url == $u)][0].id // empty' || true)

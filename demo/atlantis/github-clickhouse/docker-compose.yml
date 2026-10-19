@@ -1,0 +1,81 @@
+# Local Atlantis for the ClickHouse demo: real AWS and ClickHouse Cloud, a shared state volume, Atlantis and
+# a webhook relay. Reuses the GitHub demo's Atlantis image, workflow and report script (../github/atlantis).
+#   just base confirm   -> applies the base stack (billable) into the state volume, once
+#   just up             -> points the repo's webhook at the relay channel and starts Atlantis
+# Credentials: ~/.aws (read-only) and ~/.clickhouse.env, in the base and atlantis containers only.
+name: atlantis-clickhouse
+volumes:
+  state: {}   # terraform.tfstate, shared by base and atlantis (backend "local" at /state)
+
+services:
+  # `just base confirm` / `just destroy confirm`: terraform <args> on the stack, with the state volume.
+  base:
+    image: hashicorp/terraform:1.15.5
+    profiles: [base]
+    # the script is the entrypoint, so `docker compose run base <args>` passes <args> to terraform
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        rm -rf /work && cp -R /seed /work && cd /work
+        terraform init -input=false >/dev/null
+        terraform "$$@"
+        # atlantis runs as a non-root user and needs to write the state and its lock
+        chmod -R a+rwX /state
+      - base
+    volumes:
+      - ../shared-clickhouse/infra:/seed:ro
+      - state:/state
+      - ${HOME}/.aws:/root/.aws:ro
+    env_file: ${HOME}/.clickhouse.env
+
+  atlantis:
+    build:
+      context: ..
+      dockerfile: github/atlantis/Dockerfile
+      additional_contexts:
+        repo: ../../..
+      args: { PLAN_IMAGE: "on" }
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports:
+      - "127.0.0.1:4143:4141"       # 4141 and 4142 belong to the GitLab and GitHub demos
+    env_file: ${HOME}/.clickhouse.env
+    environment:
+      ATLANTIS_GH_USER: ${GH_USER:?run through just}
+      ATLANTIS_GH_TOKEN: ${GH_TOKEN:?missing in .env}
+      ATLANTIS_GH_WEBHOOK_SECRET: ${GH_WEBHOOK_SECRET:?missing in .env}
+      ATLANTIS_REPO_ALLOWLIST: github.com/${GH_REPO:?missing in .env}   # one repo only
+      ATLANTIS_ATLANTIS_URL: http://localhost:4143
+      ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
+      ATLANTIS_PORT: "4141"
+      ATLANTIS_DEFAULT_TF_VERSION: "1.15.5"   # password_wo needs >= 1.11
+      GH_TOKEN: ${GH_TOKEN}
+      PLAN_IMAGE: ${PLAN_IMAGE:-on}
+      PLAN_IMAGE_STYLE: ${PLAN_IMAGE_STYLE:-tour}
+      PLAN_IMAGE_DETAILS: ${PLAN_IMAGE_DETAILS:-0}
+      PLAN_IMAGE_ANIMATION: ${PLAN_IMAGE_ANIMATION:-on}
+      PLAN_IMAGE_TOUR: ${PLAN_IMAGE_TOUR:-on}
+      PLAN_IMAGE_TOUR_STOPS: ${PLAN_IMAGE_TOUR_STOPS:-8}
+      PLAN_IMAGE_TOUR_DELAY: ${PLAN_IMAGE_TOUR_DELAY:-0}
+      REPORT_HTML: ${REPORT_HTML:-on}
+      TFVIEW_LLM: ${TFVIEW_LLM:-false}
+      TFVIEW_MODEL: ${TFVIEW_MODEL:-}
+      TFVIEW_ENDPOINT: ${TFVIEW_ENDPOINT:-}
+      TFVIEW_API_KEY: ${TFVIEW_API_KEY:-}
+      TFVIEW_TEMPERATURE: ${TFVIEW_TEMPERATURE:-0}
+      REPORTS_URL: ${REPORTS_URL:?run through just}
+    volumes:
+      - ../github/atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro
+      - ../github/atlantis/report.sh:/opt/tfplanview/report.sh:ro
+      - ../shared/lib.sh:/opt/tfplanview/lib.sh:ro
+      - ../../../dist/index.html:/opt/tfplanview/index.html:ro
+      - ./reports:/reports
+      - state:/state
+      - ${HOME}/.aws:/home/atlantis/.aws:ro
+
+  relay:
+    image: node:22-alpine
+    command: ["npx", "--yes", "smee-client@5", "--url", "${SMEE_URL:?missing in .env}", "--target", "http://atlantis:4141/events"]
+    depends_on:
+      - atlantis

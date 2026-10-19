@@ -1,0 +1,78 @@
+# ClickHouse demo: a PR on real AWS + ClickHouse Cloud, planned by a local Atlantis.
+# Reuses the GitHub demo's scripts (../github/scripts) with this folder's .env and the stack in ../shared-clickhouse.
+set shell := ["bash", "-cu"]
+set dotenv-load
+
+export GH_USER := `echo "${GH_REPO%%/*}"`
+export REPORTS_URL := `r="$GH_REPO"; echo "https://${r%%/*}.github.io/${r##*/}/reports"`
+export DEMO_DIR := justfile_directory()
+export SHARED := "../shared-clickhouse"
+export SEED_MESSAGE := "Base stack: VPC, EC2 client, S3 ClickPipe, ClickHouse service over PrivateLink"
+scripts := "../github/scripts"
+
+default:
+    @just --list --unsorted
+
+# Push the stack to the repo's main branch and set up GitHub Pages (safe to re-run)
+seed:
+    {{scripts}}/seed.sh
+
+# Apply the base stack for real into the state volume (billable). Run: just base confirm
+base confirm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "{{confirm}}" = confirm ] || { echo "Creates billable AWS and ClickHouse Cloud resources. Run: just base confirm" >&2; exit 1; }
+    docker compose run --rm base apply
+
+# Plan the base stack against the state volume (read-only)
+base-plan:
+    docker compose run --rm base plan -input=false
+
+# Sync the stack to the repo, point its webhook at the relay, start Atlantis and print READY
+up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f ../../../dist/index.html ] || just --justfile ../../../justfile --working-directory ../../.. build
+    {{scripts}}/seed.sh
+    docker compose up -d --build atlantis relay
+    {{scripts}}/webhook.sh on
+    echo "waiting for Atlantis..."
+    for i in $(seq 1 60); do curl -fs -o /dev/null http://127.0.0.1:4143/healthz && break; sleep 2; done
+    curl -fs -o /dev/null http://127.0.0.1:4143/healthz || { echo "Atlantis did not start: just logs"; exit 1; }
+    echo ""; echo "READY: Atlantis listens for ${GH_REPO} through ${SMEE_URL}"
+    echo "Next: just mr-create"
+
+# Remove the webhook and stop Atlantis (the base stack and its state stay)
+down:
+    {{scripts}}/webhook.sh off || true
+    docker compose down
+
+# Open the PR: a read-only reporting service on the warehouse, reached over the same VPC endpoint
+mr-create:
+    {{scripts}}/demo.sh mr-create
+
+# Review change 1: scale the writer from 3 to 2 replicas (in place)
+mr-change-1:
+    {{scripts}}/demo.sh mr-change-1
+
+# The whole PR: open it, wait SECONDS for Atlantis to plan, then push change 1
+demo seconds="60":
+    just mr-create
+    @echo "waiting {{seconds}}s for Atlantis to plan..."
+    sleep {{seconds}}
+    just mr-change-1
+
+# Show the open PR and its commits
+status:
+    {{scripts}}/demo.sh status
+
+# Atlantis logs
+logs:
+    docker compose logs -f atlantis
+
+# Destroy the base stack (and anything a PR applied). Run: just destroy confirm
+destroy confirm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "{{confirm}}" = confirm ] || { echo "Deletes the AWS and ClickHouse Cloud resources. Run: just destroy confirm" >&2; exit 1; }
+    docker compose run --rm base destroy

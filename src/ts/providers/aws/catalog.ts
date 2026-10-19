@@ -84,6 +84,8 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["bucket","key","content_type"]},
   aws_s3_bucket_policy:             {kind:"assoc", label:"S3 Bucket Policy",   icon:"i-s3",     cat:"storage",
                                       preview:["bucket"]},
+  aws_s3_bucket_notification:       {kind:"assoc", label:"S3 Notification",    icon:"i-s3",     cat:"storage",
+                                      preview:["bucket","queue","topic","lambda_function"]},
   aws_lambda_function:              {kind:"node", label:"Lambda Function",     icon:"i-lambda", cat:"compute", sub:"runtime",
                                       preview:["runtime","handler","memory_size","timeout"]},
   aws_sqs_queue:                    {kind:"node", label:"SQS Queue",           icon:"i-sqs",    cat:"integ", scope:"region",
@@ -94,6 +96,8 @@ var AWS_REG: Record<string, CatalogEntry> = {
                                       preview:["protocol","endpoint"]},
   aws_sqs_queue_policy:             {kind:"assoc", label:"SQS Queue Policy",   icon:"i-sqs",    cat:"integ",
                                       preview:["queue_url"]},
+  aws_kinesis_stream:               {kind:"node", label:"Kinesis Stream",      icon:"i-sqs",    cat:"integ", scope:"region",
+                                      preview:["name","shard_count","retention_period","stream_mode_details"]},
   aws_dynamodb_table:               {kind:"node", label:"DynamoDB Table",      icon:"i-db",     cat:"db",   scope:"region",
                                       preview:["name","billing_mode","hash_key"]},
   aws_cloudwatch_log_group:         {kind:"node", label:"Log Group",           icon:"i-cw",     cat:"mgmt", scope:"region",
@@ -133,7 +137,13 @@ var AWS_REG: Record<string, CatalogEntry> = {
   aws_lb_target_group_attachment:       {kind:"assoc", label:"TG Attachment",         icon:"i-lb",  cat:"net",
                                           preview:["target_group_arn","target_id","port"]},
   aws_vpc_endpoint_route_table_association:{kind:"assoc", label:"Endpoint RT Assoc", icon:"i-vpce",cat:"net",
-                                          preview:["route_table_id"]}
+                                          preview:["route_table_id"]},
+  /* the provider side of PrivateLink: a service behind an NLB that other
+     accounts reach through their own VPC endpoints */
+  aws_vpc_endpoint_service:             {kind:"node", label:"Endpoint Service",      icon:"i-vpce", cat:"net",
+                                          preview:["acceptance_required","network_load_balancer_arns","service_name"]},
+  aws_vpc_endpoint_service_allowed_principal:{kind:"assoc", label:"Endpoint Service Principal", icon:"i-vpce", cat:"net",
+                                          preview:["principal_arn"]}
 };
 
 var CAT: Record<string, string> = {

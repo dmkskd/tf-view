@@ -322,6 +322,8 @@ var optAssoc = $("optAssoc");
 if (optAssoc) optAssoc.addEventListener("change", function(e: Event){ state.opts.showAssoc = (e.target as HTMLInputElement).checked; render(); });
 var optUnsup = $("optUnsup");
 if (optUnsup) optUnsup.addEventListener("change", function(e: Event){ state.opts.showUnsup = (e.target as HTMLInputElement).checked; render(); });
+var optUtility = $("optUtility");
+if (optUtility) optUtility.addEventListener("change", function(e: Event){ state.opts.showUtility = (e.target as HTMLInputElement).checked; render(); });
 var optEdges = $("optEdges");
 if (optEdges) optEdges.addEventListener("change", function(e: Event){ state.opts.edges = (e.target as HTMLSelectElement).value as any; drawEdges(); });
 

@@ -31,6 +31,7 @@ function validateContainerSpec(spec: any): string | null {
   if (spec.meta != null && (typeof spec.meta !== "string" || spec.meta.length > MAX_TEXT)) return "meta must be text up to " + MAX_TEXT + " characters";
   if (spec.maxW != null && (typeof spec.maxW !== "number" || !(spec.maxW >= 100 && spec.maxW <= 6000))) return "maxW must be a number from 100 to 6000";
   if (spec.resource != null && typeof spec.resource !== "string") return "resource must be an address";
+  if (spec.edges != null && typeof spec.edges !== "boolean") return "edges must be true or false";
   return null;
 }
 
@@ -71,6 +72,7 @@ export function startPlacement(ctx: LayoutContext, p: ProviderPlugin, own: PlanR
       if (++count > MAX_CONTAINERS) throw new PlacementError("addContainer: more than " + MAX_CONTAINERS + " containers");
       var g = mkGroup(spec.cls, spec.label, spec.meta || "", spec.maxW, !!spec.stack);
       if (spec.breakBefore) g.breakBefore = true;
+      if (spec.edges) g.edges = true;
       if (res){ g.res = res; ctx.boxedAddresses.add(res.addr); }
       pg.children.push(g);
       return registerBox(g);

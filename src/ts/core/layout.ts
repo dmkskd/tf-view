@@ -8,6 +8,7 @@ import {
 } from "../types/index.js";
 
 var TW = 178, GAP = 10, PAD = 14, HEAD = 26;
+
 var TH_FLAT = 66, TH_CHANGES = 88;      /* the Changes tile carries a diff line */
 var TH = TH_FLAT;
 
@@ -91,18 +92,20 @@ function place(g: LayoutNode, x: number, y: number): void {
    Each provider with resources in the plan gets its own cloud box, with its
    own region, global and unplaced boxes, laid out by that provider's
    placement only. A resource with no provider plugin is added to the first
-   provider's cloud. With one provider, its cloud box is the root of the
-   tree; with several, the cloud boxes are children of a "clouds" box, which
+   provider's cloud, except Terraform utility resources (core/utility.ts),
+   which get a "Terraform" box of their own. With one box, it is the root of
+   the tree; with several, the boxes are children of a "clouds" box, which
    the CSS does not draw.
    ------------------------------------------------------------------ */
 
 function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
   var vis = visibleResources(model, opts);
   var byProvider: Record<string, PlanResource[]> = {};
-  var unowned: PlanResource[] = [];
+  var unowned: PlanResource[] = [], utility: PlanResource[] = [];
   vis.forEach(function(r: PlanResource){
     var p = getProviderForResource(r);
     if (p) (byProvider[p.id] || (byProvider[p.id] = [])).push(r);
+    else if (r.utility) utility.push(r);
     else unowned.push(r);
   });
   var present = getAllProviders().filter(function(p: ProviderPlugin){ return byProvider[p.id]; });
@@ -112,6 +115,7 @@ function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
     var cloudResources = (byProvider[p.id] || []).concat(i === 0 ? unowned : []);
     return buildCloud(model, opts, p, cloudResources);
   });
+  if (utility.length) clouds.push(utilityBox(utility));
 
   var root: LayoutGroup;
   if (clouds.length === 1) root = clouds[0];
@@ -123,6 +127,15 @@ function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
   place(root, 0, 0);
   model.anc = ancestorChains(root);
   return root;
+}
+
+/* Terraform utility resources: tiles in one box, outside every cloud. */
+function utilityBox(rs: PlanResource[]): LayoutGroup {
+  var box = mkGroup("cloud", "Terraform", "", 1500, true);
+  var loose = mkGroup("loose", "Utility", "creates no infrastructure", 760);
+  loose.children = rs.map(function(r: PlanResource): LayoutLeaf { return {box:false, res:r}; });
+  box.children.push(loose);
+  return box;
 }
 
 /* Lays out one provider's cloud. If the provider's placement fails at any
@@ -141,7 +154,7 @@ function layoutCloud(model: PlanModel, opts: RenderOptions, p: ProviderPlugin | 
                      withPlacement: boolean): { cloud: LayoutGroup; error: string | null } {
   var ctxRegion = p && model.defaultProviderSettings && model.defaultProviderSettings[p.id] && model.defaultProviderSettings[p.id].region;
   var cloud = mkGroup("cloud", (p && p.cloudLabel) || "Cloud", "", 1500, true);
-  var region = mkGroup("region", "Region", ctxRegion || "region not resolved", 1420);
+  var region = mkGroup("region", "Region", ctxRegion || (p && p.regionNote) || "region not resolved", 1420);
   var global = mkGroup("loose", "Global", (p && p.globalNote) || "not regional", 760);
   var unplaced = mkGroup("loose", "Unplaced", (p && p.unplacedNote) || "no container reference", 760);
 
@@ -200,6 +213,7 @@ function visibleResources(model: PlanModel, opts: RenderOptions): PlanResource[]
     if (r.hidden) return false;
     if (!r.enabledType) return false;
     if (r.kind === "assoc" && !opts.showAssoc) return false;
+    if (r.utility) return !!opts.showUtility;
     if (!r.supported && !opts.showUnsup) return false;
     /* Changes shows the same diagram as Topology, with the plan marked on
        it. Hiding unchanged resources removed the context that makes the
@@ -272,6 +286,32 @@ function pruneEmpty(g: LayoutNode, root: LayoutGroup, opts: RenderOptions): bool
          opts.mode !== "changes";
 }
 
+/* Lines to a box (ContainerSpec.edges) that a more specific line already
+   covers: when a resource has a line to a box and another line to something
+   inside that box, only the inner line is kept. A VPC endpoint names the
+   ClickHouse service and is named by the endpoint attachment inside the
+   service box; one line, to the attachment, says it. pairs are [from, to]
+   addresses; anc is model.anc; isBox says whether an address is drawn as a
+   box. */
+function dropCoveredBoxEdges(pairs: [string, string][], anc: Record<string, string[]>,
+                             isBox: (addr: string) => boolean): [string, string][] {
+  function inside(addr: string, box: string): boolean {
+    return (anc[addr] || []).indexOf(box) >= 0;
+  }
+  /* does `end` have another line to something inside `box`? */
+  function covered(end: string, box: string): boolean {
+    return pairs.some(function(p: [string, string]){
+      var other = p[0] === end ? p[1] : p[1] === end ? p[0] : null;
+      return other !== null && other !== box && inside(other, box);
+    });
+  }
+  return pairs.filter(function(p: [string, string]){
+    if (isBox(p[1]) && covered(p[0], p[1])) return false;
+    if (isBox(p[0]) && covered(p[1], p[0])) return false;
+    return true;
+  });
+}
+
 /* An edge between a resource and something that already encloses it is
    redundant: the nesting says it. */
 function ancestorChains(root: LayoutGroup): Record<string, string[]> {
@@ -288,5 +328,5 @@ export {
   TW, GAP, PAD, HEAD, TH_FLAT, TH_CHANGES, TH, setTileHeight,
   tileHeight, mkGroup, measure, place, buildTree, buildCloud,
   visibleResources, containerOf, containerOfNeighbour,
-  placeRemaining, pruneEmpty, ancestorChains
+  placeRemaining, pruneEmpty, ancestorChains, dropCoveredBoxEdges
 };
