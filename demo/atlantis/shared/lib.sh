@@ -154,6 +154,14 @@ report_dir() {
 # Network calls give up after TFVIEW_NET_TIMEOUT seconds instead of holding the plan step.
 net_timeout() { echo "${TFVIEW_NET_TIMEOUT:-60}"; }
 
+# The terraform binary Atlantis planned with. A stack with a required_version constraint makes
+# Atlantis download the newest matching version, which can differ from the one on PATH, and a plan
+# file can be read only by the version that wrote it.
+tf_bin() {
+  tb="${ATLANTIS_DATA_DIR:-$HOME/.atlantis}/bin/terraform${ATLANTIS_TERRAFORM_VERSION:-}"
+  if [ -n "${ATLANTIS_TERRAFORM_VERSION:-}" ] && [ -x "$tb" ]; then echo "$tb"; else echo terraform; fi
+}
+
 # The report is a courtesy: whatever goes wrong in FUNCTION (a full disk, a GitHub outage, a hung upload)
 # is logged with the step it happened in, and the plan step still succeeds. REPORT_STRICT=true makes it fail.
 # FUNCTION sets STEP before each step, so the log says where it stopped.

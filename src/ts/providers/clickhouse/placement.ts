@@ -24,20 +24,24 @@ function regionLabel(r: ProviderResource): string {
   return (cloud || "cloud unknown") + " " + (region || "region unknown");
 }
 
-/* "3 × 8 GiB · 2 vCPU each · read-only · idles": replicas (num_replicas, or
-   the min_replicas–max_replicas band), memory and vCPU per replica. */
+/* "3 × 8 GiB · read-only · auto-idle 5 min": replicas (num_replicas, or the
+   min_replicas–max_replicas band) and memory per replica. */
 function serviceMeta(r: ProviderResource): string {
   var c = serviceCompute(r);
   var out: string[] = [];
   var n = c.replicas ? rangeText(c.replicas) : "";
   if (c.memory){
+    /* vCPU and totals are in the hover card (summary): the header text sets the box width */
     out.push((n ? n + " \u00d7 " : "") + rangeText(c.memory) + " GiB");
-    if (c.vcpu) out.push(rangeText(c.vcpu) + " vCPU" + (n ? " each" : ""));
   } else if (n){
     out.push(n + (n === "1" ? " replica" : " replicas"));
   }
   if (r.attrs.readonly === true) out.push("read-only");
-  if (r.attrs.idle_scaling === true) out.push("idles");
+  /* auto-idling: compute stops after idle_timeout_minutes without queries */
+  if (r.attrs.idle_scaling === true){
+    var t = r.attrs.idle_timeout_minutes;
+    out.push("auto-idle" + (typeof t === "number" ? " " + t + " min" : ""));
+  }
   return out.join(" \u00b7 ");
 }
 

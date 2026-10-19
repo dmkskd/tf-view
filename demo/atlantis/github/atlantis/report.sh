@@ -73,7 +73,7 @@ main() {
   html="$out_dir/$name"
 
   STEP="reading the plan"
-  terraform show -json "$PLANFILE" > "$DIR/plan.json"
+  "$(tf_bin)" show -json "$PLANFILE" > "$DIR/plan.json"
 
   STEP="rendering the report (and the LLM review, if asked for)"
   render_report "$DIR/plan.json" "$html" "PR #${PULL_NUM} ${REPO_REL_DIR}"

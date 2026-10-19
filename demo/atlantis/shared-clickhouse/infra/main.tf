@@ -295,8 +295,8 @@ resource "clickhouse_service" "reporting" {
   warehouse_id   = clickhouse_service.main.warehouse_id
   readonly       = true
 
-  password_wo         = ""
-  password_wo_version = 1
+  # no password: a secondary service uses the warehouse's users and
+  # passwords, and the provider refuses password_wo with warehouse_id
 
   ip_access = []
 

@@ -963,11 +963,13 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
        rows(["replicas", "2"], ["per replica", "8\u201332 GiB \u00b7 2\u20138 vCPU"], ["total", "16\u201364 GiB \u00b7 4\u201316 vCPU"]));
   });
 
-  test("an unknown replica count gives no total; an unknown profile gives no vCPU", () => {
+  test("an unknown replica count gives no total; an unknown or high-memory profile changes vCPU", () => {
     eq(summary({ min_replica_memory_gb: 8, max_replica_memory_gb: 8 }),
        rows(["replicas", "not in the plan"], ["per replica", "8 GiB \u00b7 2 vCPU"]));
     eq(summary({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 8, profile: "custom-x" }),
        rows(["replicas", "2"], ["per replica", "8 GiB"], ["total", "16 GiB"]));
+    eq(summary({ num_replicas: 3, min_replica_memory_gb: 32, max_replica_memory_gb: 32, profile: "v1-highmem-xl" }),
+       rows(["replicas", "3"], ["per replica", "32 GiB \u00b7 4 vCPU"], ["total", "96 GiB \u00b7 12 vCPU"]));
   });
 
   test("resources other than services have no summary", () => {
@@ -977,30 +979,25 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
 
   const meta = (attrs) => boxFor([["clickhouse_service.a", svc("a", attrs)]], "clickhouse_service.a").meta;
 
-  test("the header gives replicas, memory and vCPU per replica (default profile: 4 GiB per vCPU)", () => {
+  test("the header gives replicas and memory per replica; vCPU is left to the hover card", () => {
     eq(meta({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true }),
-       "3 \u00d7 8 GiB \u00b7 2 vCPU each \u00b7 idles");
+       "3 \u00d7 8 GiB \u00b7 auto-idle");
+    eq(meta({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true, idle_timeout_minutes: 5 }),
+       "3 \u00d7 8 GiB \u00b7 auto-idle 5 min");
   });
 
-  test("vertical autoscaling gives memory and vCPU as ranges", () => {
+  test("vertical autoscaling gives memory as a range", () => {
     eq(meta({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 32, profile: "v1-default" }),
-       "2 \u00d7 8\u201332 GiB \u00b7 2\u20138 vCPU each");
+       "2 \u00d7 8\u201332 GiB");
   });
 
   test("horizontal autoscaling gives the replica band", () => {
     eq(meta({ min_replicas: 2, max_replicas: 4, min_replica_memory_gb: 16, max_replica_memory_gb: 16 }),
-       "2\u20134 \u00d7 16 GiB \u00b7 4 vCPU each");
+       "2\u20134 \u00d7 16 GiB");
   });
 
-  test("the high-memory profile has 8 GiB per vCPU; another profile gets no vCPU", () => {
-    eq(meta({ num_replicas: 3, min_replica_memory_gb: 32, max_replica_memory_gb: 32, profile: "v1-highmem-xl" }),
-       "3 \u00d7 32 GiB \u00b7 4 vCPU each");
-    eq(meta({ num_replicas: 3, min_replica_memory_gb: 32, max_replica_memory_gb: 32, profile: "custom-x" }),
-       "3 \u00d7 32 GiB");
-  });
-
-  test("an unknown replica count leaves out the count and \u201ceach\u201d", () => {
-    eq(meta({ min_replica_memory_gb: 8, max_replica_memory_gb: 8, readonly: true }), "8 GiB \u00b7 2 vCPU \u00b7 read-only");
+  test("an unknown replica count leaves out the count", () => {
+    eq(meta({ min_replica_memory_gb: 8, max_replica_memory_gb: 8, readonly: true }), "8 GiB \u00b7 read-only");
   });
 
   test("a replica count without memory still shows the count", () => {

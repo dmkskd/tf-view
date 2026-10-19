@@ -42,10 +42,10 @@ services:
       - "127.0.0.1:4143:4141"       # 4141 and 4142 belong to the GitLab and GitHub demos
     env_file: ${HOME}/.clickhouse.env
     environment:
-      ATLANTIS_GH_USER: ${GH_USER:?run through just}
-      ATLANTIS_GH_TOKEN: ${GH_TOKEN:?missing in .env}
-      ATLANTIS_GH_WEBHOOK_SECRET: ${GH_WEBHOOK_SECRET:?missing in .env}
-      ATLANTIS_REPO_ALLOWLIST: github.com/${GH_REPO:?missing in .env}   # one repo only
+      ATLANTIS_GH_USER: ${GH_USER:-}
+      ATLANTIS_GH_TOKEN: ${GH_TOKEN:-}
+      ATLANTIS_GH_WEBHOOK_SECRET: ${GH_WEBHOOK_SECRET:-}
+      ATLANTIS_REPO_ALLOWLIST: github.com/${GH_REPO:-}   # one repo only
       ATLANTIS_ATLANTIS_URL: http://localhost:4143
       ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
       ATLANTIS_PORT: "4141"
@@ -64,7 +64,7 @@ services:
       TFVIEW_ENDPOINT: ${TFVIEW_ENDPOINT:-}
       TFVIEW_API_KEY: ${TFVIEW_API_KEY:-}
       TFVIEW_TEMPERATURE: ${TFVIEW_TEMPERATURE:-0}
-      REPORTS_URL: ${REPORTS_URL:?run through just}
+      REPORTS_URL: ${REPORTS_URL:-}
     volumes:
       - ../github/atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro
       - ../github/atlantis/report.sh:/opt/tfplanview/report.sh:ro
@@ -76,6 +76,6 @@ services:
 
   relay:
     image: node:22-alpine
-    command: ["npx", "--yes", "smee-client@5", "--url", "${SMEE_URL:?missing in .env}", "--target", "http://atlantis:4141/events"]
+    command: ["npx", "--yes", "smee-client@5", "--url", "${SMEE_URL:-}", "--target", "http://atlantis:4141/events"]
     depends_on:
       - atlantis

@@ -136,11 +136,11 @@
     [cloud] ClickHouse Cloud   @1066,26 1014x610
       [region] Region per service  @1080,52 986x378
         [az location] AWS us-east-2   @1094,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 922x222
-            [cluster service] Service analytics 3 × 16–120 GiB · 4–30 vCPU each  @1122,130 394x106
+          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 891x222
+            [cluster service] Service analytics 3 × 16–120 GiB  @1122,130 394x106
               . clickhouse_service_private_endpoints_attachment.analytics  @1136,156 178x66
               . clickhouse_service_upgrade_window.analytics  @1324,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · 2–8 vCPU each · read-only · idles  @1526,130 490x182
+            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1526,130 459x182
               . clickhouse_query_api_endpoint.daily_events  @1540,156 178x66
               . clickhouse_saved_query.top_event_types  @1728,156 178x66
               . clickhouse_service_scheduled_scaling.reporting  @1540,232 178x66
@@ -194,11 +194,11 @@
     [cloud] ClickHouse Cloud   @1818,26 1014x610
       [region] Region per service  @1832,52 986x378
         [az location] AWS us-east-2   @1846,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1860,104 922x222
-            [cluster service] Service analytics 3 × 16–120 GiB · 4–30 vCPU each  @1874,130 394x106
+          [vpc-wide warehouse] Warehouse analytics shared data  @1860,104 891x222
+            [cluster service] Service analytics 3 × 16–120 GiB  @1874,130 394x106
               . clickhouse_service_private_endpoints_attachment.analytics  @1888,156 178x66
               . clickhouse_service_upgrade_window.analytics  @2076,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · 2–8 vCPU each · read-only · idles  @2278,130 490x182
+            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @2278,130 459x182
               . clickhouse_query_api_endpoint.daily_events  @2292,156 178x66
               . clickhouse_saved_query.top_event_types  @2480,156 178x66
               . clickhouse_service_scheduled_scaling.reporting  @2292,232 178x66
@@ -244,11 +244,11 @@
     [cloud] ClickHouse Cloud   @1066,26 1014x610
       [region] Region per service  @1080,52 986x378
         [az location] AWS us-east-2   @1094,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 922x222
-            [cluster service] Service analytics 3 × 16–120 GiB · 4–30 vCPU each  @1122,130 394x106
+          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 891x222
+            [cluster service] Service analytics 3 × 16–120 GiB  @1122,130 394x106
               . clickhouse_service_private_endpoints_attachment.analytics  @1136,156 178x66
               . clickhouse_service_upgrade_window.analytics  @1324,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · 2–8 vCPU each · read-only · idles  @1526,130 490x182
+            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1526,130 459x182
               . clickhouse_query_api_endpoint.daily_events  @1540,156 178x66
               . clickhouse_saved_query.top_event_types  @1728,156 178x66
               . clickhouse_service_scheduled_scaling.reporting  @1540,232 178x66

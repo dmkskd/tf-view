@@ -3,8 +3,9 @@
 set shell := ["bash", "-cu"]
 set dotenv-load
 
-export GH_USER := `echo "${GH_REPO%%/*}"`
-export REPORTS_URL := `r="$GH_REPO"; echo "https://${r%%/*}.github.io/${r##*/}/reports"`
+# empty without .env, so `just` still lists the recipes; the recipes that need them stop with a message
+export GH_USER := `r="${GH_REPO:-}"; echo "${r%%/*}"`
+export REPORTS_URL := `r="${GH_REPO:-}"; [ -n "$r" ] && echo "https://${r%%/*}.github.io/${r##*/}/reports" || true`
 export DEMO_DIR := justfile_directory()
 export SHARED := "../shared-clickhouse"
 export SEED_MESSAGE := "Base stack: VPC, EC2 client, S3 ClickPipe, ClickHouse service over PrivateLink"
@@ -13,8 +14,16 @@ scripts := "../github/scripts"
 default:
     @just --list --unsorted
 
+[private]
+need-env:
+    #!/usr/bin/env bash
+    [ -f .env ] || { echo "No .env here: cp .env.example .env and fill it in (see README.md)" >&2; exit 1; }
+    for v in GH_REPO GH_TOKEN GH_WEBHOOK_SECRET SMEE_URL; do
+      [ -n "${!v:-}" ] || { echo "$v is empty in .env" >&2; exit 1; }
+    done
+
 # Push the stack to the repo's main branch and set up GitHub Pages (safe to re-run)
-seed:
+seed: need-env
     {{scripts}}/seed.sh
 
 # Apply the base stack for real into the state volume (billable). Run: just base confirm
@@ -29,7 +38,7 @@ base-plan:
     docker compose run --rm base plan -input=false
 
 # Sync the stack to the repo, point its webhook at the relay, start Atlantis and print READY
-up:
+up: need-env
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f ../../../dist/index.html ] || just --justfile ../../../justfile --working-directory ../../.. build
@@ -48,11 +57,11 @@ down:
     docker compose down
 
 # Open the PR: a read-only reporting service on the warehouse, reached over the same VPC endpoint
-mr-create:
+mr-create: need-env
     {{scripts}}/demo.sh mr-create
 
 # Review change 1: scale the writer from 3 to 2 replicas (in place)
-mr-change-1:
+mr-change-1: need-env
     {{scripts}}/demo.sh mr-change-1
 
 # The whole PR: open it, wait SECONDS for Atlantis to plan, then push change 1
@@ -63,7 +72,7 @@ demo seconds="60":
     just mr-change-1
 
 # Show the open PR and its commits
-status:
+status: need-env
     {{scripts}}/demo.sh status
 
 # Atlantis logs
