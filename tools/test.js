@@ -1004,11 +1004,11 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
 
   const meta = (attrs) => boxFor([["clickhouse_service.a", svc("a", attrs)]], "clickhouse_service.a").meta;
 
-  test("the header gives replicas and memory per replica; vCPU is left to the hover card", () => {
-    eq(meta({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true }),
-       "3 \u00d7 8 GiB \u00b7 auto-idle");
+  test("the header gives replicas and memory per replica; vCPU and auto-idle are left to the hover card", () => {
     eq(meta({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true, idle_timeout_minutes: 5 }),
-       "3 \u00d7 8 GiB \u00b7 auto-idle 5 min");
+       "3 \u00d7 8 GiB");
+    eq(summary({ num_replicas: 3, min_replica_memory_gb: 8, max_replica_memory_gb: 8, idle_scaling: true, idle_timeout_minutes: 5 }).slice(-1),
+       rows(["auto-idle", "after 5 min"]));
   });
 
   test("vertical autoscaling gives memory as a range", () => {

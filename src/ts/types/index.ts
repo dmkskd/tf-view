@@ -314,6 +314,7 @@ export interface LayoutGroup {
   y: number;
   res?: PlanResource;
   edges?: boolean;
+  badgeW?: number;        /* width of the action and risk badges in the header */
   _rows?: LayoutRow[];
 }
 

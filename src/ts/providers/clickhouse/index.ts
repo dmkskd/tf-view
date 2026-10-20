@@ -129,6 +129,11 @@ function chSummary(r: ProviderResource): SummaryRow[] {
         (c.vcpu ? " \u00b7 " + rangeText(total(c.replicas, c.vcpu)) + " vCPU" : "") });
     }
   }
+  /* auto-idling: compute stops after idle_timeout_minutes without queries */
+  if (r.attrs.idle_scaling === true){
+    var t = r.attrs.idle_timeout_minutes;
+    rows.push({ label: "auto-idle", value: typeof t === "number" ? "after " + t + " min" : "on" });
+  }
   return rows;
 }
 

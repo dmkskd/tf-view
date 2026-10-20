@@ -69,9 +69,9 @@ function measure(g: LayoutNode): LayoutNode {
      room left by the contents, shrinking (with an ellipsis, full text in its
      title) to MIN_LABEL_W before the box grows for it. A header with a label
      only is drawn whole. */
-  var metaW = g.meta ? g.meta.length * 6.2 + 8 : 0;
+  var metaW = (g.meta ? g.meta.length * 6.2 + 8 : 0) + (g.badgeW || 0);
   var labelText = g.label.length * 7.4;
-  if (g.meta) labelText = Math.min(labelText, Math.max(MIN_LABEL_W, innerW - metaW - 30));
+  if (metaW) labelText = Math.min(labelText, Math.max(MIN_LABEL_W, innerW - metaW - 30));
   var labelW = labelText + metaW + 30;
   /* whole pixels: fractional widths give sub-pixel borders and blurry edges */
   g.w = Math.ceil(Math.max(innerW, labelW, 120)) + PAD*2;
@@ -131,10 +131,25 @@ function buildTree(model: PlanModel, opts: RenderOptions): LayoutGroup {
     root = mkGroup("clouds", "", "", 4000);
     root.children = clouds;
   }
+  setBadgeWidths(root, opts);
   measure(root);
   place(root, 0, 0);
   model.anc = ancestorChains(root);
   return root;
+}
+
+/* A box drawn for a resource shows its action (changes mode) and its LLM
+   risk in the header, after the meta text; measure() keeps room for them.
+   Widths follow the 8px badge type in tiles.css. */
+function setBadgeWidths(g: LayoutNode, opts: RenderOptions): void {
+  if (!g.box) return;
+  var w = 0, r = g.res;
+  if (r && opts.mode === "changes" && r.action !== "no-op" && r.action !== "read")
+    w += r.action.length * 6 + 18;
+  if (r && r.llmInsight && r.llmInsight.risk && opts.showLlm !== false)
+    w += String(r.llmInsight.risk).length * 6 + 16;
+  g.badgeW = w;
+  g.children.forEach(function(k: LayoutNode){ setBadgeWidths(k, opts); });
 }
 
 /* Terraform utility resources: tiles in one box, outside every cloud. */

@@ -161,13 +161,14 @@ are unknown until apply. The reference is still present in
   a README in each sample folder.
 - [x] **10. Compute.** `src/ts/providers/clickhouse/compute.ts`.
   - The service box header shows replicas and memory per replica:
-    `3 × 8 GiB · auto-idle 5 min`. Horizontal autoscaling shows the replica band
-    (`2–4 × 16 GiB`). The header text sets the box width, so vCPU is left to
-    the hover card.
+    `3 × 8 GiB · read-only`. Horizontal autoscaling shows the replica band
+    (`2–4 × 16 GiB`). The header text sets the box width, so vCPU and
+    auto-idle are left to the hover card. The layout reserves header room for
+    the action and LLM risk badges.
   - vCPU comes from memory: 4 GiB per vCPU in the default profile, 8 in the
     high-memory profile, none for any other profile.
-  - The hover card shows `replicas`, `per replica` (memory and vCPU) and
-    `total` rows through the `summary` provider hook.
+  - The hover card shows `replicas`, `per replica` (memory and vCPU),
+    `total` and `auto-idle` rows through the `summary` provider hook.
 - [x] **11. Lines to boxes.** Core draws no lines to boxes; it highlights them.
   A provider sets `edges: true` on a container to receive lines. Service boxes
   set it, so a ClickPipe outside the service has a line to it.
