@@ -23,6 +23,10 @@ plan *args:
 json *args: (plan args)
     terraform show -json tfplan > plan.json
 
+# LLM review of plan.json (run just json first): plan-reviewed.json and review.html. Model: model= or TFVIEW_MODEL
+explain model="" scope="changes":
+    tfview explain plan.json {{ if model != "" { "--model " + model } else { "" } }} --scope {{scope}} --json-out plan-reviewed.json -o review.html
+
 # Create the stack. Run: just apply confirm
 apply confirm *args:
     #!/usr/bin/env bash
@@ -34,7 +38,7 @@ apply confirm *args:
     terraform apply {{args}}
 
 # Upload one JSON file with n events from the EC2 client to S3
-produce n="100":
+produce-s3 n="100":
     #!/usr/bin/env bash
     set -euo pipefail
     bucket=$(terraform output -raw events_bucket)
@@ -57,7 +61,7 @@ produce n="100":
     SCRIPT
 
 # Query the events table from the EC2 client over PrivateLink
-check:
+check-s3:
     #!/usr/bin/env bash
     set -euo pipefail
     host=$(terraform output -raw clickhouse_host)
@@ -68,9 +72,62 @@ check:
     q "SELECT event_type, count() AS n, round(avg(value), 2) AS avg_value FROM events GROUP BY event_type ORDER BY n DESC FORMAT PrettyCompactMonoBlock"
     SCRIPT
 
-# ClickPipe state as reported by ClickHouse Cloud
+# Create pg_orders_live in ClickHouse: a PostgreSQL engine table, each query reads Postgres
+pg-link:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host=$(terraform output -raw clickhouse_host)
+    password=$(terraform output -raw clickhouse_password)
+    pg_host=$(terraform output -raw pg_host)
+    pg_user=$(terraform output -raw pg_user)
+    pg_password=$(terraform output -raw pg_password)
+    # the PostgreSQL engine has no LowCardinality
+    cols="id Int64, created_at DateTime64(6, 'UTC'), customer_id Int32, status String, amount Decimal(10, 2)"
+    ./ssm.sh <<SCRIPT
+    set -e
+    curl -sS --fail-with-body --user 'default:$password' "https://$host:8443/" \
+      --data-binary "CREATE TABLE IF NOT EXISTS pg_orders_live ($cols) ENGINE = PostgreSQL('$pg_host:5432', 'postgres', 'orders', '$pg_user', '$pg_password', 'public')"
+    echo linked
+    SCRIPT
+
+# Insert n orders into Postgres from the EC2 client, and ship 10 paid ones
+produce-pg n="100":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pg_host=$(terraform output -raw pg_host)
+    pg_user=$(terraform output -raw pg_user)
+    pg_password=$(terraform output -raw pg_password)
+    ./ssm.sh <<SCRIPT
+    set -e
+    command -v psql >/dev/null || dnf install -y -q postgresql16
+    export PGPASSWORD='$pg_password'
+    psql "host=$pg_host user=$pg_user dbname=postgres sslmode=require" -v ON_ERROR_STOP=1 \
+      -c "INSERT INTO orders (customer_id, status, amount) SELECT 1 + floor(random() * 1000)::int, (ARRAY['new', 'paid', 'shipped'])[1 + floor(random() * 3)::int], round((random() * 200)::numeric, 2) FROM generate_series(1, {{n}})" \
+      -c "UPDATE orders SET status = 'shipped' WHERE id IN (SELECT id FROM orders WHERE status = 'paid' ORDER BY random() LIMIT 10)"
+    SCRIPT
+
+# Compare Postgres (through pg_orders_live) with the CDC copy in pg_orders_cdc
+check-pg:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host=$(terraform output -raw clickhouse_host)
+    password=$(terraform output -raw clickhouse_password)
+    ./ssm.sh <<SCRIPT
+    q() { curl -sS --fail-with-body --user 'default:$password' "https://$host:8443/" --data-binary "\$1"; }
+    if [ "\$(q 'EXISTS TABLE pg_orders_cdc')" != 1 ]; then
+      echo "no pg_orders_cdc yet: the pipe creates it, see just state"; exit 0
+    fi
+    q "SELECT 'postgres' AS src, count() AS rows, countIf(status = 'shipped') AS shipped, max(created_at) AS latest, NULL AS synced FROM pg_orders_live
+       UNION ALL
+       SELECT 'clickhouse', count(), countIf(status = 'shipped'), max(created_at), max(_peerdb_synced_at) FROM pg_orders_cdc FINAL WHERE _peerdb_is_deleted = 0
+       FORMAT PrettyCompactMonoBlock"
+    SCRIPT
+
+# ClickPipe states as reported by ClickHouse Cloud
 state:
-    terraform apply -refresh-only -auto-approve -target=clickhouse_clickpipe.events >/dev/null && terraform output -raw clickpipe_state; echo
+    terraform apply -refresh-only -auto-approve -target=clickhouse_clickpipe.events -target=clickhouse_clickpipe.orders >/dev/null
+    @echo "events: $(terraform output -raw clickpipe_state)"
+    @echo "orders: $(terraform output -json pg_clickpipe_state)"
 
 # Delete everything. Run: just destroy confirm
 destroy confirm *args:

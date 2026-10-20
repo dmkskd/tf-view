@@ -8,6 +8,7 @@ import {
 } from "../types/index.js";
 
 var TW = 178, GAP = 10, PAD = 14, HEAD = 26;
+var MIN_LABEL_W = 140;                  /* a header label may shrink to this, with an ellipsis */
 
 var TH_FLAT = 66, TH_CHANGES = 88;      /* the Changes tile carries a diff line */
 var TH = TH_FLAT;
@@ -64,7 +65,14 @@ function measure(g: LayoutNode): LayoutNode {
     r.h = rh;
     innerH += rh + (i ? GAP : 0);
   });
-  var labelW = (g.label.length * 7.4) + (g.meta ? g.meta.length * 6.2 + 8 : 0) + 30;
+  /* A header with meta text keeps the meta whole, and its label takes the
+     room left by the contents, shrinking (with an ellipsis, full text in its
+     title) to MIN_LABEL_W before the box grows for it. A header with a label
+     only is drawn whole. */
+  var metaW = g.meta ? g.meta.length * 6.2 + 8 : 0;
+  var labelText = g.label.length * 7.4;
+  if (g.meta) labelText = Math.min(labelText, Math.max(MIN_LABEL_W, innerW - metaW - 30));
+  var labelW = labelText + metaW + 30;
   /* whole pixels: fractional widths give sub-pixel borders and blurry edges */
   g.w = Math.ceil(Math.max(innerW, labelW, 120)) + PAD*2;
   g.h = innerH + HEAD + PAD;

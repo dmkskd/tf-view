@@ -1,0 +1,5102 @@
+{
+  "annotations": {
+    "llm_review": {
+      "blast_radius": "Compute/Networking tier, Storage tier, Data pipeline services",
+      "depth": "standard",
+      "key_warnings": [
+        "The new S3 bucket (`aws_s3_bucket.events`) is set to `force_destroy: true`, allowing the bucket and all its contents to be permanently deleted.",
+        "The route table association resources have `gateway_id: null`, which may result in no IGW being attached unless further configuration is applied elsewhere."
+      ],
+      "metrics": {
+        "completion_tokens": 2387,
+        "duration_ms": 42288,
+        "prompt_tokens": 6352,
+        "total_tokens": 8739
+      },
+      "model": "gpt-oss:20b",
+      "provider": "ollama",
+      "resources": {
+        "aws_iam_instance_profile.client": {
+          "badge": "IAM Instance Profile",
+          "irreversible": false,
+          "note": "Provides EC2 with the IAM role for instance profile.",
+          "risk": "LOW"
+        },
+        "aws_iam_role.clickpipes": {
+          "badge": "IAM Role",
+          "irreversible": false,
+          "note": "Custom role for ClickHouse pipe operations.",
+          "risk": "LOW"
+        },
+        "aws_iam_role.client": {
+          "badge": "IAM Role",
+          "irreversible": false,
+          "note": "EC2 trust policy allows EC2 to assume this role.",
+          "risk": "LOW"
+        },
+        "aws_iam_role_policy.clickpipes": {
+          "badge": "IAM Policy",
+          "irreversible": false,
+          "note": "Policy attached to the clickpipes role.",
+          "risk": "LOW"
+        },
+        "aws_iam_role_policy.client_produce": {
+          "badge": "IAM Policy",
+          "irreversible": false,
+          "note": "Policy for producing events from EC2.",
+          "risk": "LOW"
+        },
+        "aws_iam_role_policy_attachment.client_ssm": {
+          "badge": "IAM Attachment",
+          "irreversible": false,
+          "note": "Enables SSM for EC2 management.",
+          "risk": "LOW"
+        },
+        "aws_instance.client": {
+          "badge": "EC2 Instance",
+          "irreversible": false,
+          "note": "T4g micro instance configured for event production.",
+          "risk": "MEDIUM"
+        },
+        "aws_internet_gateway.main": {
+          "badge": "IGW",
+          "irreversible": false,
+          "note": "Provides internet access to public subnets.",
+          "risk": "LOW"
+        },
+        "aws_route53_record.clickhouse": {
+          "badge": "DNS CNAME",
+          "irreversible": false,
+          "note": "Creates a CNAME for ClickHouse service.",
+          "risk": "LOW"
+        },
+        "aws_route53_zone.clickhouse": {
+          "badge": "Private Zone",
+          "irreversible": false,
+          "note": "Hosted zone attached to the VPC.",
+          "risk": "LOW"
+        },
+        "aws_route_table.public": {
+          "badge": "Route Table",
+          "irreversible": false,
+          "note": "Adds a default route to 0.0.0.0/0; ensure IGW association.",
+          "risk": "MEDIUM"
+        },
+        "aws_route_table_association.public[0]": {
+          "badge": "RT Association",
+          "irreversible": false,
+          "note": "Associates subnet 0 with the public route table.",
+          "risk": "MEDIUM"
+        },
+        "aws_route_table_association.public[1]": {
+          "badge": "RT Association",
+          "irreversible": false,
+          "note": "Associates subnet 1 with the public route table.",
+          "risk": "MEDIUM"
+        },
+        "aws_s3_bucket.events": {
+          "badge": "S3 Bucket",
+          "irreversible": false,
+          "note": "Bucket for event storage, force_destroy enabled.",
+          "risk": "MEDIUM"
+        },
+        "aws_s3_bucket_notification.events": {
+          "badge": "Bucket Notification",
+          "irreversible": false,
+          "note": "Triggers on object creation in events/[].",
+          "risk": "LOW"
+        },
+        "aws_s3_object.seed": {
+          "badge": "Seed Object",
+          "irreversible": false,
+          "note": "Initial event data seeded into S3.",
+          "risk": "LOW"
+        },
+        "aws_security_group.clickhouse_endpoint": {
+          "badge": "SG (Endpoint)",
+          "irreversible": false,
+          "note": "Security group for ClickHouse VPC endpoint.",
+          "risk": "LOW"
+        },
+        "aws_security_group.client": {
+          "badge": "SG (Client)",
+          "irreversible": false,
+          "note": "Egress-only security group for the EC2 client.",
+          "risk": "LOW"
+        },
+        "aws_sqs_queue.events": {
+          "badge": "SQS Queue",
+          "irreversible": false,
+          "note": "Queue for passing events between services.",
+          "risk": "LOW"
+        },
+        "aws_sqs_queue_policy.events": {
+          "badge": "SQS Policy",
+          "irreversible": false,
+          "note": "Placeholder for future access policy.",
+          "risk": "LOW"
+        },
+        "aws_subnet.public[0]": {
+          "badge": "Subnet",
+          "irreversible": false,
+          "note": "First public subnet (us-east-1a).",
+          "risk": "LOW"
+        },
+        "aws_subnet.public[1]": {
+          "badge": "Subnet",
+          "irreversible": false,
+          "note": "Second public subnet (us-east-1b).",
+          "risk": "LOW"
+        },
+        "aws_vpc.main": {
+          "badge": "VPC",
+          "irreversible": false,
+          "note": "Main VPC with CIDR 10.43.0.0/16.",
+          "risk": "LOW"
+        },
+        "aws_vpc_endpoint.clickhouse": {
+          "badge": "VPC Endpoint (Interface)",
+          "irreversible": false,
+          "note": "Interface endpoint for ClickHouse cloud.",
+          "risk": "LOW"
+        },
+        "aws_vpc_endpoint.s3": {
+          "badge": "VPC Endpoint (Gateway)",
+          "irreversible": false,
+          "note": "Gateway endpoint for S3 access.",
+          "risk": "LOW"
+        },
+        "aws_vpc_security_group_egress_rule.client_all": {
+          "badge": "SG Egress",
+          "irreversible": false,
+          "note": "Allows all outbound traffic.",
+          "risk": "MEDIUM"
+        },
+        "aws_vpc_security_group_ingress_rule.clickhouse_https": {
+          "badge": "SG Ingress (HTTPS)",
+          "irreversible": false,
+          "note": "Allows HTTPS to ClickHouse on port 8443.",
+          "risk": "LOW"
+        },
+        "aws_vpc_security_group_ingress_rule.clickhouse_native": {
+          "badge": "SG Ingress (Native)",
+          "irreversible": false,
+          "note": "Allows native TLS to ClickHouse on port 9440.",
+          "risk": "LOW"
+        },
+        "clickhouse_clickpipe.events": {
+          "badge": "ClickHouse ClickPipe",
+          "irreversible": false,
+          "note": "Ingests S3 JSON events into ClickHouse.",
+          "risk": "LOW"
+        },
+        "clickhouse_clickpipe.orders[0]": {
+          "badge": "ClickHouse ClickPipe",
+          "irreversible": false,
+          "note": "Streams PostgreSQL orders table via CDC.",
+          "risk": "LOW"
+        },
+        "clickhouse_clickpipe_cdc_infrastructure.main[0]": {
+          "badge": "CDC Infra",
+          "irreversible": false,
+          "note": "Resources for CDC replication.",
+          "risk": "LOW"
+        },
+        "clickhouse_postgres_service.app": {
+          "badge": "PostgreSQL Service",
+          "irreversible": false,
+          "note": "Creates managed PostgreSQL for ClickHouse CDC.",
+          "risk": "LOW"
+        },
+        "clickhouse_service.main": {
+          "badge": "ClickHouse Service",
+          "irreversible": false,
+          "note": "Main ClickHouse analytics cluster.",
+          "risk": "LOW"
+        },
+        "clickhouse_service_private_endpoints_attachment.main": {
+          "badge": "Endpoint Attachment",
+          "irreversible": false,
+          "note": "Attaches ClickHouse to private endpoints.",
+          "risk": "LOW"
+        },
+        "random_password.pg": {
+          "badge": "Password",
+          "irreversible": false,
+          "note": "Generates random password for PG service.",
+          "risk": "LOW"
+        },
+        "terraform_data.cdc_provisioned[0]": {
+          "badge": "Terraform Data",
+          "irreversible": false,
+          "note": "Placeholder for CDC provisioning state.",
+          "risk": "LOW"
+        },
+        "terraform_data.pg_schema": {
+          "badge": "Terraform Data",
+          "irreversible": false,
+          "note": "Placeholder for PG schema provisioning.",
+          "risk": "LOW"
+        },
+        "time_sleep.clickpipes_iam": {
+          "badge": "Time Sleep",
+          "irreversible": false,
+          "note": "Delays IAM propogation before proceeding.",
+          "risk": "LOW"
+        }
+      },
+      "risk_level": "LOW",
+      "scope": "changes",
+      "summary": "This Terraform plan builds an isolated AWS data ingestion pipeline. It provisions a VPC, public subnets, an internet gateway and route tables, IAM roles, an EC2 producer instance, an S3 event bucket, an SQS queue, and a ClickHouse service backed by PostgreSQL."
+    }
+  },
+  "applyable": true,
+  "complete": true,
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "expressions": {
+          "default_tags": [
+            {
+              "tags": {
+                "references": [
+                  "var.name"
+                ]
+              }
+            }
+          ],
+          "region": {
+            "references": [
+              "var.region"
+            ]
+          }
+        },
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "name": "aws",
+        "version_constraint": "~> 5.0"
+      },
+      "clickhouse": {
+        "full_name": "registry.terraform.io/clickhouse/clickhouse",
+        "name": "clickhouse",
+        "version_constraint": "~> 3.39"
+      },
+      "random": {
+        "full_name": "registry.terraform.io/hashicorp/random",
+        "name": "random",
+        "version_constraint": "~> 3.6"
+      },
+      "terraform": {
+        "full_name": "terraform.io/builtin/terraform",
+        "name": "terraform"
+      },
+      "time": {
+        "full_name": "registry.terraform.io/hashicorp/time",
+        "name": "time",
+        "version_constraint": "~> 0.12"
+      }
+    },
+    "root_module": {
+      "outputs": {
+        "clickhouse_host": {
+          "expression": {
+            "references": [
+              "clickhouse_service.main.private_endpoint_config.private_dns_hostname",
+              "clickhouse_service.main.private_endpoint_config",
+              "clickhouse_service.main"
+            ]
+          }
+        },
+        "clickhouse_password": {
+          "expression": {
+            "references": [
+              "clickhouse_service.main.generated_password",
+              "clickhouse_service.main"
+            ]
+          },
+          "sensitive": true
+        },
+        "clickpipe_state": {
+          "expression": {
+            "references": [
+              "clickhouse_clickpipe.events.state",
+              "clickhouse_clickpipe.events"
+            ]
+          }
+        },
+        "client_instance_id": {
+          "expression": {
+            "references": [
+              "aws_instance.client.id",
+              "aws_instance.client"
+            ]
+          }
+        },
+        "events_bucket": {
+          "expression": {
+            "references": [
+              "aws_s3_bucket.events.bucket",
+              "aws_s3_bucket.events"
+            ]
+          }
+        },
+        "pg_clickpipe_state": {
+          "expression": {
+            "references": [
+              "clickhouse_clickpipe.orders"
+            ]
+          }
+        },
+        "pg_host": {
+          "expression": {
+            "references": [
+              "clickhouse_postgres_service.app.hostname",
+              "clickhouse_postgres_service.app"
+            ]
+          }
+        },
+        "pg_password": {
+          "expression": {
+            "references": [
+              "random_password.pg.result",
+              "random_password.pg"
+            ]
+          },
+          "sensitive": true
+        },
+        "pg_user": {
+          "expression": {
+            "references": [
+              "clickhouse_postgres_service.app.username",
+              "clickhouse_postgres_service.app"
+            ]
+          }
+        }
+      },
+      "resources": [
+        {
+          "address": "aws_iam_instance_profile.client",
+          "expressions": {
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.client.name",
+                "aws_iam_role.client"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_instance_profile"
+        },
+        {
+          "address": "aws_iam_role.clickpipes",
+          "expressions": {
+            "assume_role_policy": {
+              "references": [
+                "clickhouse_service.main.iam_role",
+                "clickhouse_service.main"
+              ]
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "clickpipes",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role"
+        },
+        {
+          "address": "aws_iam_role.client",
+          "expressions": {
+            "assume_role_policy": {},
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role"
+        },
+        {
+          "address": "aws_iam_role_policy.clickpipes",
+          "expressions": {
+            "name": {
+              "constant_value": "read-events"
+            },
+            "policy": {
+              "references": [
+                "aws_s3_bucket.events.arn",
+                "aws_s3_bucket.events",
+                "aws_s3_bucket.events.arn",
+                "aws_s3_bucket.events",
+                "aws_sqs_queue.events.arn",
+                "aws_sqs_queue.events"
+              ]
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.clickpipes.id",
+                "aws_iam_role.clickpipes"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "clickpipes",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role_policy"
+        },
+        {
+          "address": "aws_iam_role_policy.client_produce",
+          "expressions": {
+            "name": {
+              "constant_value": "produce-events"
+            },
+            "policy": {
+              "references": [
+                "aws_s3_bucket.events.arn",
+                "aws_s3_bucket.events"
+              ]
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.client.id",
+                "aws_iam_role.client"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client_produce",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role_policy"
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.client_ssm",
+          "expressions": {
+            "policy_arn": {
+              "constant_value": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.client.name",
+                "aws_iam_role.client"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client_ssm",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role_policy_attachment"
+        },
+        {
+          "address": "aws_instance.client",
+          "expressions": {
+            "ami": {
+              "references": [
+                "data.aws_ssm_parameter.al2023_arm64.value",
+                "data.aws_ssm_parameter.al2023_arm64"
+              ]
+            },
+            "associate_public_ip_address": {
+              "constant_value": true
+            },
+            "iam_instance_profile": {
+              "references": [
+                "aws_iam_instance_profile.client.name",
+                "aws_iam_instance_profile.client"
+              ]
+            },
+            "instance_type": {
+              "constant_value": "t4g.micro"
+            },
+            "subnet_id": {
+              "references": [
+                "aws_subnet.public[0].id",
+                "aws_subnet.public[0]",
+                "aws_subnet.public"
+              ]
+            },
+            "tags": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "vpc_security_group_ids": {
+              "references": [
+                "aws_security_group.client.id",
+                "aws_security_group.client"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_instance"
+        },
+        {
+          "address": "aws_internet_gateway.main",
+          "expressions": {
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "main",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_internet_gateway"
+        },
+        {
+          "address": "aws_route53_record.clickhouse",
+          "expressions": {
+            "name": {
+              "references": [
+                "clickhouse_service.main.private_endpoint_config.private_dns_hostname",
+                "clickhouse_service.main.private_endpoint_config",
+                "clickhouse_service.main"
+              ]
+            },
+            "records": {
+              "references": [
+                "aws_vpc_endpoint.clickhouse.dns_entry[0].dns_name",
+                "aws_vpc_endpoint.clickhouse.dns_entry[0]",
+                "aws_vpc_endpoint.clickhouse.dns_entry",
+                "aws_vpc_endpoint.clickhouse"
+              ]
+            },
+            "ttl": {
+              "constant_value": 300
+            },
+            "type": {
+              "constant_value": "CNAME"
+            },
+            "zone_id": {
+              "references": [
+                "aws_route53_zone.clickhouse.zone_id",
+                "aws_route53_zone.clickhouse"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_config_key": "aws",
+          "schema_version": 2,
+          "type": "aws_route53_record"
+        },
+        {
+          "address": "aws_route53_zone.clickhouse",
+          "expressions": {
+            "name": {
+              "references": [
+                "var.region"
+              ]
+            },
+            "vpc": [
+              {
+                "vpc_id": {
+                  "references": [
+                    "aws_vpc.main.id",
+                    "aws_vpc.main"
+                  ]
+                }
+              }
+            ]
+          },
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_route53_zone"
+        },
+        {
+          "address": "aws_route_table.public",
+          "expressions": {
+            "route": {
+              "references": [
+                "aws_internet_gateway.main.id",
+                "aws_internet_gateway.main"
+              ]
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "public",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_route_table"
+        },
+        {
+          "address": "aws_route_table_association.public",
+          "count_expression": {
+            "constant_value": 2
+          },
+          "expressions": {
+            "route_table_id": {
+              "references": [
+                "aws_route_table.public.id",
+                "aws_route_table.public"
+              ]
+            },
+            "subnet_id": {
+              "references": [
+                "aws_subnet.public",
+                "count.index"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "public",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_route_table_association"
+        },
+        {
+          "address": "aws_s3_bucket.events",
+          "expressions": {
+            "bucket_prefix": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "force_destroy": {
+              "constant_value": true
+            }
+          },
+          "mode": "managed",
+          "name": "events",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_s3_bucket"
+        },
+        {
+          "address": "aws_s3_bucket_notification.events",
+          "depends_on": [
+            "aws_sqs_queue_policy.events"
+          ],
+          "expressions": {
+            "bucket": {
+              "references": [
+                "aws_s3_bucket.events.id",
+                "aws_s3_bucket.events"
+              ]
+            },
+            "queue": [
+              {
+                "events": {
+                  "constant_value": [
+                    "s3:ObjectCreated:*"
+                  ]
+                },
+                "filter_prefix": {
+                  "constant_value": "events/"
+                },
+                "filter_suffix": {
+                  "constant_value": ".json"
+                },
+                "queue_arn": {
+                  "references": [
+                    "aws_sqs_queue.events.arn",
+                    "aws_sqs_queue.events"
+                  ]
+                }
+              }
+            ]
+          },
+          "mode": "managed",
+          "name": "events",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_s3_bucket_notification"
+        },
+        {
+          "address": "aws_s3_object.seed",
+          "depends_on": [
+            "aws_s3_bucket_notification.events"
+          ],
+          "expressions": {
+            "bucket": {
+              "references": [
+                "aws_s3_bucket.events.id",
+                "aws_s3_bucket.events"
+              ]
+            },
+            "content": {
+              "constant_value": "{\"id\":\"seed-1\",\"ts\":\"2026-01-01 00:00:00.000\",\"event_type\":\"signup\",\"user_id\":1,\"value\":0}\n{\"id\":\"seed-2\",\"ts\":\"2026-01-01 00:00:01.000\",\"event_type\":\"login\",\"user_id\":1,\"value\":0}\n"
+            },
+            "content_type": {
+              "constant_value": "application/json"
+            },
+            "key": {
+              "constant_value": "events/0000-seed.json"
+            }
+          },
+          "mode": "managed",
+          "name": "seed",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_s3_object"
+        },
+        {
+          "address": "aws_security_group.clickhouse_endpoint",
+          "expressions": {
+            "description": {
+              "constant_value": "Interface endpoint to ClickHouse Cloud"
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "clickhouse_endpoint",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_security_group"
+        },
+        {
+          "address": "aws_security_group.client",
+          "expressions": {
+            "description": {
+              "constant_value": "Producer and ClickHouse client, egress only"
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_security_group"
+        },
+        {
+          "address": "aws_sqs_queue.events",
+          "expressions": {
+            "message_retention_seconds": {
+              "constant_value": 86400
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 300
+            }
+          },
+          "mode": "managed",
+          "name": "events",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_sqs_queue"
+        },
+        {
+          "address": "aws_sqs_queue_policy.events",
+          "expressions": {
+            "policy": {
+              "references": [
+                "aws_sqs_queue.events.arn",
+                "aws_sqs_queue.events",
+                "aws_s3_bucket.events.arn",
+                "aws_s3_bucket.events"
+              ]
+            },
+            "queue_url": {
+              "references": [
+                "aws_sqs_queue.events.id",
+                "aws_sqs_queue.events"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "events",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_sqs_queue_policy"
+        },
+        {
+          "address": "aws_subnet.public",
+          "count_expression": {
+            "constant_value": 2
+          },
+          "expressions": {
+            "availability_zone": {
+              "references": [
+                "data.aws_availability_zones.available.names",
+                "data.aws_availability_zones.available",
+                "count.index"
+              ]
+            },
+            "cidr_block": {
+              "references": [
+                "aws_vpc.main.cidr_block",
+                "aws_vpc.main",
+                "count.index"
+              ]
+            },
+            "tags": {
+              "references": [
+                "var.name",
+                "count.index"
+              ]
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "public",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_subnet"
+        },
+        {
+          "address": "aws_vpc.main",
+          "expressions": {
+            "cidr_block": {
+              "constant_value": "10.43.0.0/16"
+            },
+            "enable_dns_hostnames": {
+              "constant_value": true
+            },
+            "enable_dns_support": {
+              "constant_value": true
+            },
+            "tags": {
+              "references": [
+                "var.name"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "main",
+          "provider_config_key": "aws",
+          "schema_version": 1,
+          "type": "aws_vpc"
+        },
+        {
+          "address": "aws_vpc_endpoint.clickhouse",
+          "expressions": {
+            "private_dns_enabled": {
+              "constant_value": false
+            },
+            "security_group_ids": {
+              "references": [
+                "aws_security_group.clickhouse_endpoint.id",
+                "aws_security_group.clickhouse_endpoint"
+              ]
+            },
+            "service_name": {
+              "references": [
+                "clickhouse_service.main.private_endpoint_config.endpoint_service_id",
+                "clickhouse_service.main.private_endpoint_config",
+                "clickhouse_service.main"
+              ]
+            },
+            "subnet_ids": {
+              "references": [
+                "aws_subnet.public"
+              ]
+            },
+            "tags": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "vpc_endpoint_type": {
+              "constant_value": "Interface"
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_vpc_endpoint"
+        },
+        {
+          "address": "aws_vpc_endpoint.s3",
+          "expressions": {
+            "route_table_ids": {
+              "references": [
+                "aws_route_table.public.id",
+                "aws_route_table.public"
+              ]
+            },
+            "service_name": {
+              "references": [
+                "var.region"
+              ]
+            },
+            "tags": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "vpc_endpoint_type": {
+              "constant_value": "Gateway"
+            },
+            "vpc_id": {
+              "references": [
+                "aws_vpc.main.id",
+                "aws_vpc.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "s3",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_vpc_endpoint"
+        },
+        {
+          "address": "aws_vpc_security_group_egress_rule.client_all",
+          "expressions": {
+            "cidr_ipv4": {
+              "constant_value": "0.0.0.0/0"
+            },
+            "ip_protocol": {
+              "constant_value": "-1"
+            },
+            "security_group_id": {
+              "references": [
+                "aws_security_group.client.id",
+                "aws_security_group.client"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "client_all",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_vpc_security_group_egress_rule"
+        },
+        {
+          "address": "aws_vpc_security_group_ingress_rule.clickhouse_https",
+          "expressions": {
+            "description": {
+              "constant_value": "ClickHouse HTTPS"
+            },
+            "from_port": {
+              "constant_value": 8443
+            },
+            "ip_protocol": {
+              "constant_value": "tcp"
+            },
+            "referenced_security_group_id": {
+              "references": [
+                "aws_security_group.client.id",
+                "aws_security_group.client"
+              ]
+            },
+            "security_group_id": {
+              "references": [
+                "aws_security_group.clickhouse_endpoint.id",
+                "aws_security_group.clickhouse_endpoint"
+              ]
+            },
+            "to_port": {
+              "constant_value": 8443
+            }
+          },
+          "mode": "managed",
+          "name": "clickhouse_https",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_vpc_security_group_ingress_rule"
+        },
+        {
+          "address": "aws_vpc_security_group_ingress_rule.clickhouse_native",
+          "expressions": {
+            "description": {
+              "constant_value": "ClickHouse native protocol (TLS)"
+            },
+            "from_port": {
+              "constant_value": 9440
+            },
+            "ip_protocol": {
+              "constant_value": "tcp"
+            },
+            "referenced_security_group_id": {
+              "references": [
+                "aws_security_group.client.id",
+                "aws_security_group.client"
+              ]
+            },
+            "security_group_id": {
+              "references": [
+                "aws_security_group.clickhouse_endpoint.id",
+                "aws_security_group.clickhouse_endpoint"
+              ]
+            },
+            "to_port": {
+              "constant_value": 9440
+            }
+          },
+          "mode": "managed",
+          "name": "clickhouse_native",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_vpc_security_group_ingress_rule"
+        },
+        {
+          "address": "clickhouse_clickpipe.events",
+          "depends_on": [
+            "time_sleep.clickpipes_iam",
+            "aws_s3_object.seed"
+          ],
+          "expressions": {
+            "destination": {
+              "constant_value": {
+                "columns": [
+                  {
+                    "name": "id",
+                    "type": "String"
+                  },
+                  {
+                    "name": "ts",
+                    "type": "DateTime64(3)"
+                  },
+                  {
+                    "name": "event_type",
+                    "type": "LowCardinality(String)"
+                  },
+                  {
+                    "name": "user_id",
+                    "type": "UInt32"
+                  },
+                  {
+                    "name": "value",
+                    "type": "Float64"
+                  }
+                ],
+                "managed_table": true,
+                "table": "events",
+                "table_definition": {
+                  "engine": {
+                    "type": "MergeTree"
+                  },
+                  "sorting_key": [
+                    "event_type",
+                    "ts"
+                  ]
+                }
+              }
+            },
+            "field_mappings": {
+              "constant_value": [
+                {
+                  "destination_field": "id",
+                  "source_field": "id"
+                },
+                {
+                  "destination_field": "ts",
+                  "source_field": "ts"
+                },
+                {
+                  "destination_field": "event_type",
+                  "source_field": "event_type"
+                },
+                {
+                  "destination_field": "user_id",
+                  "source_field": "user_id"
+                },
+                {
+                  "destination_field": "value",
+                  "source_field": "value"
+                }
+              ]
+            },
+            "name": {
+              "constant_value": "S3 events"
+            },
+            "service_id": {
+              "references": [
+                "clickhouse_service.main.id",
+                "clickhouse_service.main"
+              ]
+            },
+            "source": {
+              "references": [
+                "aws_s3_bucket.events.bucket_regional_domain_name",
+                "aws_s3_bucket.events",
+                "aws_sqs_queue.events.url",
+                "aws_sqs_queue.events",
+                "aws_iam_role.clickpipes.arn",
+                "aws_iam_role.clickpipes"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "events",
+          "provider_config_key": "clickhouse",
+          "schema_version": 0,
+          "type": "clickhouse_clickpipe"
+        },
+        {
+          "address": "clickhouse_clickpipe.orders",
+          "count_expression": {
+            "references": [
+              "var.pg_pipe"
+            ]
+          },
+          "depends_on": [
+            "terraform_data.pg_schema"
+          ],
+          "expressions": {
+            "destination": {
+              "constant_value": {
+                "database": "default"
+              }
+            },
+            "name": {
+              "constant_value": "Postgres orders"
+            },
+            "service_id": {
+              "references": [
+                "clickhouse_service.main.id",
+                "clickhouse_service.main"
+              ]
+            },
+            "source": {
+              "references": [
+                "clickhouse_postgres_service.app.hostname",
+                "clickhouse_postgres_service.app",
+                "clickhouse_postgres_service.app.port",
+                "clickhouse_postgres_service.app",
+                "data.clickhouse_postgres_service_ca_certificates.app.certificate",
+                "data.clickhouse_postgres_service_ca_certificates.app",
+                "clickhouse_postgres_service.app.username",
+                "clickhouse_postgres_service.app",
+                "random_password.pg.result",
+                "random_password.pg"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "orders",
+          "provider_config_key": "clickhouse",
+          "schema_version": 0,
+          "type": "clickhouse_clickpipe"
+        },
+        {
+          "address": "clickhouse_clickpipe_cdc_infrastructure.main",
+          "count_expression": {
+            "references": [
+              "var.pg_pipe"
+            ]
+          },
+          "depends_on": [
+            "terraform_data.cdc_provisioned"
+          ],
+          "expressions": {
+            "replica_cpu_millicores": {
+              "constant_value": 1000
+            },
+            "replica_memory_gb": {
+              "constant_value": 4
+            },
+            "service_id": {
+              "references": [
+                "clickhouse_service.main.id",
+                "clickhouse_service.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "main",
+          "provider_config_key": "clickhouse",
+          "schema_version": 0,
+          "type": "clickhouse_clickpipe_cdc_infrastructure"
+        },
+        {
+          "address": "clickhouse_postgres_service.app",
+          "expressions": {
+            "cloud_provider": {
+              "constant_value": "aws"
+            },
+            "ha_type": {
+              "constant_value": "none"
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "password": {
+              "references": [
+                "random_password.pg.result",
+                "random_password.pg"
+              ]
+            },
+            "postgres_version": {
+              "constant_value": "18"
+            },
+            "region": {
+              "references": [
+                "var.region"
+              ]
+            },
+            "size": {
+              "references": [
+                "var.pg_size"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "app",
+          "provider_config_key": "clickhouse",
+          "schema_version": 1,
+          "type": "clickhouse_postgres_service"
+        },
+        {
+          "address": "clickhouse_service.main",
+          "expressions": {
+            "autoscaling_mode": {
+              "constant_value": "vertical"
+            },
+            "backup_configuration": {
+              "constant_value": {
+                "backup_period_in_hours": 24,
+                "backup_retention_period_in_hours": 24
+              }
+            },
+            "cloud_provider": {
+              "constant_value": "aws"
+            },
+            "enable_core_dumps": {
+              "constant_value": true
+            },
+            "endpoints": {
+              "constant_value": {
+                "mysql": {
+                  "enabled": false
+                }
+              }
+            },
+            "idle_scaling": {
+              "constant_value": true
+            },
+            "idle_timeout_minutes": {
+              "constant_value": 5
+            },
+            "ip_access": {
+              "constant_value": []
+            },
+            "max_replica_memory_gb": {
+              "constant_value": 8
+            },
+            "min_replica_memory_gb": {
+              "constant_value": 8
+            },
+            "name": {
+              "references": [
+                "var.name"
+              ]
+            },
+            "num_replicas": {
+              "constant_value": 3
+            },
+            "password_wo": {
+              "constant_value": ""
+            },
+            "password_wo_version": {
+              "constant_value": 1
+            },
+            "region": {
+              "references": [
+                "var.region"
+              ]
+            },
+            "release_channel": {
+              "constant_value": "default"
+            }
+          },
+          "mode": "managed",
+          "name": "main",
+          "provider_config_key": "clickhouse",
+          "schema_version": 1,
+          "type": "clickhouse_service"
+        },
+        {
+          "address": "clickhouse_service_private_endpoints_attachment.main",
+          "expressions": {
+            "private_endpoint_ids": {
+              "references": [
+                "aws_vpc_endpoint.clickhouse.id",
+                "aws_vpc_endpoint.clickhouse"
+              ]
+            },
+            "service_id": {
+              "references": [
+                "clickhouse_service.main.id",
+                "clickhouse_service.main"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "main",
+          "provider_config_key": "clickhouse",
+          "schema_version": 0,
+          "type": "clickhouse_service_private_endpoints_attachment"
+        },
+        {
+          "address": "random_password.pg",
+          "expressions": {
+            "length": {
+              "constant_value": 24
+            },
+            "min_lower": {
+              "constant_value": 1
+            },
+            "min_numeric": {
+              "constant_value": 1
+            },
+            "min_upper": {
+              "constant_value": 1
+            },
+            "special": {
+              "constant_value": false
+            }
+          },
+          "mode": "managed",
+          "name": "pg",
+          "provider_config_key": "random",
+          "schema_version": 3,
+          "type": "random_password"
+        },
+        {
+          "address": "terraform_data.cdc_provisioned",
+          "count_expression": {
+            "references": [
+              "var.pg_pipe"
+            ]
+          },
+          "expressions": {
+            "triggers_replace": {
+              "references": [
+                "clickhouse_clickpipe.orders[0].id",
+                "clickhouse_clickpipe.orders[0]",
+                "clickhouse_clickpipe.orders"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "cdc_provisioned",
+          "provider_config_key": "terraform",
+          "provisioners": [
+            {
+              "expressions": {
+                "command": {
+                  "constant_value": "set -euo pipefail\nurl=\"https://api.clickhouse.cloud/v1/organizations/$CLICKHOUSE_ORG_ID/services/$SERVICE_ID/clickpipes/$PIPE_ID\"\nfor _ in $(seq 60); do\n  state=$(curl -sS --fail --user \"$CLICKHOUSE_CLOUD_API_KEY:$CLICKHOUSE_CLOUD_API_SECRET\" \"$url\" |\n    python3 -c 'import json, sys; print(json.load(sys.stdin)[\"result\"][\"state\"])')\n  echo \"pipe $PIPE_ID: $state\"\n  case \"$state\" in\n    Running) exit 0 ;;\n    Failed | InternalError) exit 1 ;;\n  esac\n  sleep 15\ndone\necho \"pipe not Running after 15 min\" >&2\nexit 1\n"
+                },
+                "environment": {
+                  "references": [
+                    "clickhouse_service.main.id",
+                    "clickhouse_service.main",
+                    "clickhouse_clickpipe.orders[0].id",
+                    "clickhouse_clickpipe.orders[0]",
+                    "clickhouse_clickpipe.orders"
+                  ]
+                },
+                "interpreter": {
+                  "constant_value": [
+                    "bash",
+                    "-c"
+                  ]
+                }
+              },
+              "type": "local-exec"
+            }
+          ],
+          "schema_version": 0,
+          "type": "terraform_data"
+        },
+        {
+          "address": "terraform_data.pg_schema",
+          "expressions": {
+            "triggers_replace": {
+              "references": [
+                "clickhouse_postgres_service.app.id",
+                "clickhouse_postgres_service.app"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "pg_schema",
+          "provider_config_key": "terraform",
+          "provisioners": [
+            {
+              "expressions": {
+                "command": {
+                  "constant_value": "psql -v ON_ERROR_STOP=1 -c \"\n  CREATE TABLE IF NOT EXISTS public.orders (\n    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n    created_at  timestamptz NOT NULL DEFAULT now(),\n    customer_id integer NOT NULL,\n    status      text NOT NULL,\n    amount      numeric(10,2) NOT NULL\n  )\"\n"
+                },
+                "environment": {
+                  "references": [
+                    "clickhouse_postgres_service.app.hostname",
+                    "clickhouse_postgres_service.app",
+                    "clickhouse_postgres_service.app.port",
+                    "clickhouse_postgres_service.app",
+                    "clickhouse_postgres_service.app.username",
+                    "clickhouse_postgres_service.app",
+                    "random_password.pg.result",
+                    "random_password.pg"
+                  ]
+                }
+              },
+              "type": "local-exec"
+            }
+          ],
+          "schema_version": 0,
+          "type": "terraform_data"
+        },
+        {
+          "address": "time_sleep.clickpipes_iam",
+          "depends_on": [
+            "aws_iam_role_policy.clickpipes"
+          ],
+          "expressions": {
+            "create_duration": {
+              "constant_value": "20s"
+            }
+          },
+          "mode": "managed",
+          "name": "clickpipes_iam",
+          "provider_config_key": "time",
+          "schema_version": 0,
+          "type": "time_sleep"
+        },
+        {
+          "address": "data.aws_availability_zones.available",
+          "expressions": {
+            "state": {
+              "constant_value": "available"
+            }
+          },
+          "mode": "data",
+          "name": "available",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_availability_zones"
+        },
+        {
+          "address": "data.aws_ssm_parameter.al2023_arm64",
+          "expressions": {
+            "name": {
+              "constant_value": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+            }
+          },
+          "mode": "data",
+          "name": "al2023_arm64",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_ssm_parameter"
+        },
+        {
+          "address": "data.clickhouse_postgres_service_ca_certificates.app",
+          "expressions": {
+            "service_id": {
+              "references": [
+                "clickhouse_postgres_service.app.id",
+                "clickhouse_postgres_service.app"
+              ]
+            }
+          },
+          "mode": "data",
+          "name": "app",
+          "provider_config_key": "clickhouse",
+          "schema_version": 0,
+          "type": "clickhouse_postgres_service_ca_certificates"
+        }
+      ],
+      "variables": {
+        "name": {
+          "default": "tfpv-pipes"
+        },
+        "pg_pipe": {
+          "default": true,
+          "description": "Replicate Postgres into ClickHouse with a CDC ClickPipe (billed CDC workers)"
+        },
+        "pg_size": {
+          "default": "m6gd.large",
+          "description": "Managed Postgres instance size; m6gd.large is the smallest the docs name"
+        },
+        "region": {
+          "default": "us-east-1",
+          "description": "AWS region, also used for the ClickHouse service"
+        }
+      }
+    }
+  },
+  "errored": false,
+  "format_version": "1.2",
+  "output_changes": {
+    "clickhouse_host": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "clickhouse_password": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": true,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": true
+    },
+    "clickpipe_state": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "client_instance_id": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "events_bucket": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "pg_clickpipe_state": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "pg_host": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "pg_password": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": true,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": true
+    },
+    "pg_user": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    }
+  },
+  "planned_values": {
+    "outputs": {
+      "clickhouse_host": {
+        "sensitive": false
+      },
+      "clickhouse_password": {
+        "sensitive": true
+      },
+      "clickpipe_state": {
+        "sensitive": false
+      },
+      "client_instance_id": {
+        "sensitive": false
+      },
+      "events_bucket": {
+        "sensitive": false
+      },
+      "pg_clickpipe_state": {
+        "sensitive": false
+      },
+      "pg_host": {
+        "sensitive": false
+      },
+      "pg_password": {
+        "sensitive": true
+      },
+      "pg_user": {
+        "sensitive": false
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_instance_profile.client",
+          "mode": "managed",
+          "name": "client",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_iam_instance_profile",
+          "values": {
+            "name": "tfpv-pipes-client",
+            "path": "/",
+            "role": "tfpv-pipes-client",
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            }
+          }
+        },
+        {
+          "address": "aws_iam_role.clickpipes",
+          "mode": "managed",
+          "name": "clickpipes",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "tags_all": {}
+          },
+          "type": "aws_iam_role",
+          "values": {
+            "description": null,
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "tfpv-pipes-clickpipes",
+            "path": "/",
+            "permissions_boundary": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            }
+          }
+        },
+        {
+          "address": "aws_iam_role.client",
+          "mode": "managed",
+          "name": "client",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "tags_all": {}
+          },
+          "type": "aws_iam_role",
+          "values": {
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "description": null,
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "tfpv-pipes-client",
+            "path": "/",
+            "permissions_boundary": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            }
+          }
+        },
+        {
+          "address": "aws_iam_role_policy.clickpipes",
+          "mode": "managed",
+          "name": "clickpipes",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy",
+          "values": {
+            "name": "read-events"
+          }
+        },
+        {
+          "address": "aws_iam_role_policy.client_produce",
+          "mode": "managed",
+          "name": "client_produce",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy",
+          "values": {
+            "name": "produce-events"
+          }
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.client_ssm",
+          "mode": "managed",
+          "name": "client_ssm",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+            "role": "tfpv-pipes-client"
+          }
+        },
+        {
+          "address": "aws_instance.client",
+          "mode": "managed",
+          "name": "client",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "ami": true,
+            "capacity_reservation_specification": [],
+            "cpu_options": [],
+            "credit_specification": [],
+            "ebs_block_device": [],
+            "enclave_options": [],
+            "ephemeral_block_device": [],
+            "instance_market_options": [],
+            "ipv6_addresses": [],
+            "launch_template": [],
+            "maintenance_options": [],
+            "metadata_options": [],
+            "network_interface": [],
+            "private_dns_name_options": [],
+            "root_block_device": [],
+            "secondary_private_ips": [],
+            "security_groups": [],
+            "tags": {},
+            "tags_all": {},
+            "vpc_security_group_ids": []
+          },
+          "type": "aws_instance",
+          "values": {
+            "ami": "ami-04048e843b318bc37",
+            "associate_public_ip_address": true,
+            "credit_specification": [],
+            "get_password_data": false,
+            "hibernation": null,
+            "iam_instance_profile": "tfpv-pipes-client",
+            "instance_type": "t4g.micro",
+            "launch_template": [],
+            "source_dest_check": true,
+            "tags": {
+              "Name": "tfpv-pipes-client"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes-client",
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null,
+            "user_data_replace_on_change": false,
+            "volume_tags": null
+          }
+        },
+        {
+          "address": "aws_internet_gateway.main",
+          "mode": "managed",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_internet_gateway",
+          "values": {
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_route53_record.clickhouse",
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 2,
+          "sensitive_values": {
+            "alias": [],
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "latency_routing_policy": [],
+            "records": [],
+            "weighted_routing_policy": []
+          },
+          "type": "aws_route53_record",
+          "values": {
+            "alias": [],
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": null,
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": null,
+            "set_identifier": null,
+            "timeouts": null,
+            "ttl": 300,
+            "type": "CNAME",
+            "weighted_routing_policy": []
+          }
+        },
+        {
+          "address": "aws_route53_zone.clickhouse",
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "name_servers": [],
+            "tags_all": {},
+            "vpc": [
+              {}
+            ]
+          },
+          "type": "aws_route53_zone",
+          "values": {
+            "comment": "Managed by Terraform",
+            "delegation_set_id": null,
+            "force_destroy": false,
+            "name": "us-east-1.vpce.aws.clickhouse.cloud",
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null,
+            "vpc": [
+              {}
+            ]
+          }
+        },
+        {
+          "address": "aws_route_table.public",
+          "mode": "managed",
+          "name": "public",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "propagating_vgws": [],
+            "route": [
+              {}
+            ],
+            "tags_all": {}
+          },
+          "type": "aws_route_table",
+          "values": {
+            "route": [
+              {
+                "carrier_gateway_id": "",
+                "cidr_block": "0.0.0.0/0",
+                "core_network_arn": "",
+                "destination_prefix_list_id": "",
+                "egress_only_gateway_id": "",
+                "ipv6_cidr_block": "",
+                "local_gateway_id": "",
+                "nat_gateway_id": "",
+                "network_interface_id": "",
+                "transit_gateway_id": "",
+                "vpc_endpoint_id": "",
+                "vpc_peering_connection_id": ""
+              }
+            ],
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_route_table_association.public[0]",
+          "index": 0,
+          "mode": "managed",
+          "name": "public",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_route_table_association",
+          "values": {
+            "gateway_id": null,
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_route_table_association.public[1]",
+          "index": 1,
+          "mode": "managed",
+          "name": "public",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_route_table_association",
+          "values": {
+            "gateway_id": null,
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_s3_bucket.events",
+          "mode": "managed",
+          "name": "events",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "cors_rule": [],
+            "grant": [],
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "replication_configuration": [],
+            "server_side_encryption_configuration": [],
+            "tags_all": {},
+            "versioning": [],
+            "website": []
+          },
+          "type": "aws_s3_bucket",
+          "values": {
+            "bucket_prefix": "tfpv-pipes-events-",
+            "force_destroy": true,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_s3_bucket_notification.events",
+          "mode": "managed",
+          "name": "events",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "lambda_function": [],
+            "queue": [
+              {
+                "events": [
+                  false
+                ]
+              }
+            ],
+            "topic": []
+          },
+          "type": "aws_s3_bucket_notification",
+          "values": {
+            "eventbridge": false,
+            "lambda_function": [],
+            "queue": [
+              {
+                "events": [
+                  "s3:ObjectCreated:*"
+                ],
+                "filter_prefix": "events/",
+                "filter_suffix": ".json"
+              }
+            ],
+            "topic": []
+          }
+        },
+        {
+          "address": "aws_s3_object.seed",
+          "mode": "managed",
+          "name": "seed",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content": "{\"id\":\"seed-1\",\"ts\":\"2026-01-01 00:00:00.000\",\"event_type\":\"signup\",\"user_id\":1,\"value\":0}\n{\"id\":\"seed-2\",\"ts\":\"2026-01-01 00:00:01.000\",\"event_type\":\"login\",\"user_id\":1,\"value\":0}\n",
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "application/json",
+            "force_destroy": false,
+            "key": "events/0000-seed.json",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "website_redirect": null
+          }
+        },
+        {
+          "address": "aws_security_group.clickhouse_endpoint",
+          "mode": "managed",
+          "name": "clickhouse_endpoint",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [],
+            "ingress": [],
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Interface endpoint to ClickHouse Cloud",
+            "name": "tfpv-pipes-clickhouse-endpoint",
+            "revoke_rules_on_delete": false,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_security_group.client",
+          "mode": "managed",
+          "name": "client",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [],
+            "ingress": [],
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Producer and ClickHouse client, egress only",
+            "name": "tfpv-pipes-client",
+            "revoke_rules_on_delete": false,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_sqs_queue.events",
+          "mode": "managed",
+          "name": "events",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_sqs_queue",
+          "values": {
+            "content_based_deduplication": false,
+            "delay_seconds": 0,
+            "fifo_queue": false,
+            "kms_master_key_id": null,
+            "max_message_size": 262144,
+            "message_retention_seconds": 86400,
+            "name": "tfpv-pipes-events",
+            "receive_wait_time_seconds": 0,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null,
+            "visibility_timeout_seconds": 300
+          }
+        },
+        {
+          "address": "aws_sqs_queue_policy.events",
+          "mode": "managed",
+          "name": "events",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {},
+          "type": "aws_sqs_queue_policy"
+        },
+        {
+          "address": "aws_subnet.public[0]",
+          "index": 0,
+          "mode": "managed",
+          "name": "public",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_subnet",
+          "values": {
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "us-east-1a",
+            "cidr_block": "10.43.0.0/24",
+            "customer_owned_ipv4_pool": null,
+            "enable_dns64": false,
+            "enable_lni_at_device_index": null,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "ipv6_cidr_block": null,
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": null,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": null,
+            "tags": {
+              "Name": "tfpv-pipes-public-0"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes-public-0",
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_subnet.public[1]",
+          "index": 1,
+          "mode": "managed",
+          "name": "public",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_subnet",
+          "values": {
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "us-east-1b",
+            "cidr_block": "10.43.1.0/24",
+            "customer_owned_ipv4_pool": null,
+            "enable_dns64": false,
+            "enable_lni_at_device_index": null,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "ipv6_cidr_block": null,
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": null,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": null,
+            "tags": {
+              "Name": "tfpv-pipes-public-1"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes-public-1",
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null
+          }
+        },
+        {
+          "address": "aws_vpc.main",
+          "mode": "managed",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_vpc",
+          "values": {
+            "assign_generated_ipv6_cidr_block": null,
+            "cidr_block": "10.43.0.0/16",
+            "enable_dns_hostnames": true,
+            "enable_dns_support": true,
+            "instance_tenancy": "default",
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
+            "ipv6_netmask_length": null,
+            "tags": {
+              "Name": "tfpv-pipes"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes",
+              "Project": "tfpv-pipes"
+            }
+          }
+        },
+        {
+          "address": "aws_vpc_endpoint.clickhouse",
+          "mode": "managed",
+          "name": "clickhouse",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "cidr_blocks": [],
+            "dns_entry": [],
+            "dns_options": [],
+            "network_interface_ids": [],
+            "route_table_ids": [],
+            "security_group_ids": [],
+            "subnet_configuration": [],
+            "subnet_ids": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_vpc_endpoint",
+          "values": {
+            "auto_accept": null,
+            "private_dns_enabled": false,
+            "resource_configuration_arn": null,
+            "service_network_arn": null,
+            "tags": {
+              "Name": "tfpv-pipes-clickhouse"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes-clickhouse",
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null,
+            "vpc_endpoint_type": "Interface"
+          }
+        },
+        {
+          "address": "aws_vpc_endpoint.s3",
+          "mode": "managed",
+          "name": "s3",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "cidr_blocks": [],
+            "dns_entry": [],
+            "dns_options": [],
+            "network_interface_ids": [],
+            "route_table_ids": [],
+            "security_group_ids": [],
+            "subnet_configuration": [],
+            "subnet_ids": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_vpc_endpoint",
+          "values": {
+            "auto_accept": null,
+            "resource_configuration_arn": null,
+            "service_name": "com.amazonaws.us-east-1.s3",
+            "service_network_arn": null,
+            "tags": {
+              "Name": "tfpv-pipes-s3"
+            },
+            "tags_all": {
+              "Name": "tfpv-pipes-s3",
+              "Project": "tfpv-pipes"
+            },
+            "timeouts": null,
+            "vpc_endpoint_type": "Gateway"
+          }
+        },
+        {
+          "address": "aws_vpc_security_group_egress_rule.client_all",
+          "mode": "managed",
+          "name": "client_all",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_vpc_security_group_egress_rule",
+          "values": {
+            "cidr_ipv4": "0.0.0.0/0",
+            "cidr_ipv6": null,
+            "description": null,
+            "from_port": null,
+            "ip_protocol": "-1",
+            "prefix_list_id": null,
+            "referenced_security_group_id": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "to_port": null
+          }
+        },
+        {
+          "address": "aws_vpc_security_group_ingress_rule.clickhouse_https",
+          "mode": "managed",
+          "name": "clickhouse_https",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_vpc_security_group_ingress_rule",
+          "values": {
+            "cidr_ipv4": null,
+            "cidr_ipv6": null,
+            "description": "ClickHouse HTTPS",
+            "from_port": 8443,
+            "ip_protocol": "tcp",
+            "prefix_list_id": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "to_port": 8443
+          }
+        },
+        {
+          "address": "aws_vpc_security_group_ingress_rule.clickhouse_native",
+          "mode": "managed",
+          "name": "clickhouse_native",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_vpc_security_group_ingress_rule",
+          "values": {
+            "cidr_ipv4": null,
+            "cidr_ipv6": null,
+            "description": "ClickHouse native protocol (TLS)",
+            "from_port": 9440,
+            "ip_protocol": "tcp",
+            "prefix_list_id": null,
+            "tags": null,
+            "tags_all": {
+              "Project": "tfpv-pipes"
+            },
+            "to_port": 9440
+          }
+        },
+        {
+          "address": "clickhouse_clickpipe.events",
+          "mode": "managed",
+          "name": "events",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 0,
+          "sensitive_values": {
+            "destination": {
+              "columns": [
+                {},
+                {},
+                {},
+                {},
+                {}
+              ],
+              "table_definition": {
+                "engine": {},
+                "sorting_key": [
+                  false,
+                  false
+                ]
+              }
+            },
+            "field_mappings": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ],
+            "source": {
+              "object_storage": {
+                "connection_string": true,
+                "service_account_key": true
+              }
+            }
+          },
+          "type": "clickhouse_clickpipe",
+          "values": {
+            "destination": {
+              "columns": [
+                {
+                  "name": "id",
+                  "type": "String"
+                },
+                {
+                  "name": "ts",
+                  "type": "DateTime64(3)"
+                },
+                {
+                  "name": "event_type",
+                  "type": "LowCardinality(String)"
+                },
+                {
+                  "name": "user_id",
+                  "type": "UInt32"
+                },
+                {
+                  "name": "value",
+                  "type": "Float64"
+                }
+              ],
+              "database": "default",
+              "managed_table": true,
+              "roles": null,
+              "table": "events",
+              "table_definition": {
+                "engine": {
+                  "column_ids": null,
+                  "type": "MergeTree",
+                  "version_column_id": null
+                },
+                "partition_by": null,
+                "primary_key": null,
+                "sorting_key": [
+                  "event_type",
+                  "ts"
+                ],
+                "ttl": null
+              }
+            },
+            "field_mappings": [
+              {
+                "destination_field": "id",
+                "source_field": "id"
+              },
+              {
+                "destination_field": "ts",
+                "source_field": "ts"
+              },
+              {
+                "destination_field": "event_type",
+                "source_field": "event_type"
+              },
+              {
+                "destination_field": "user_id",
+                "source_field": "user_id"
+              },
+              {
+                "destination_field": "value",
+                "source_field": "value"
+              }
+            ],
+            "name": "S3 events",
+            "scaling": null,
+            "settings": null,
+            "source": {
+              "bigquery": null,
+              "kafka": null,
+              "kinesis": null,
+              "mongodb": null,
+              "mysql": null,
+              "object_storage": {
+                "access_key": null,
+                "authentication": "IAM_ROLE",
+                "azure_container_name": null,
+                "compression": null,
+                "connection_string": null,
+                "delimiter": null,
+                "format": "JSONEachRow",
+                "is_continuous": true,
+                "path": null,
+                "service_account_key": null,
+                "skip_initial_load": null,
+                "start_after": null,
+                "type": "s3"
+              },
+              "postgres": null,
+              "pubsub": null
+            },
+            "stopped": false,
+            "trigger_resync": false
+          }
+        },
+        {
+          "address": "clickhouse_clickpipe.orders[0]",
+          "index": 0,
+          "mode": "managed",
+          "name": "orders",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 0,
+          "sensitive_values": {
+            "destination": {},
+            "source": {
+              "postgres": {
+                "credentials": true,
+                "settings": {},
+                "table_mappings": [
+                  {}
+                ]
+              }
+            }
+          },
+          "type": "clickhouse_clickpipe",
+          "values": {
+            "destination": {
+              "columns": null,
+              "database": "default",
+              "managed_table": true,
+              "roles": null,
+              "table": null,
+              "table_definition": null
+            },
+            "field_mappings": null,
+            "name": "Postgres orders",
+            "scaling": null,
+            "settings": null,
+            "source": {
+              "bigquery": null,
+              "kafka": null,
+              "kinesis": null,
+              "mongodb": null,
+              "mysql": null,
+              "object_storage": null,
+              "postgres": {
+                "authentication": "basic",
+                "credentials": {
+                  "password_wo": null,
+                  "password_wo_version": null
+                },
+                "database": "postgres",
+                "disable_tls": false,
+                "iam_role": null,
+                "settings": {
+                  "delete_on_merge": false,
+                  "enable_failover_slots": false,
+                  "publication_name": null,
+                  "replication_mode": "cdc",
+                  "replication_slot_name": null
+                },
+                "skip_cert_verification": false,
+                "ssh_key_resource_id": null,
+                "table_mappings": [
+                  {
+                    "excluded_columns": null,
+                    "partition_by_expr": null,
+                    "partition_key": null,
+                    "sorting_keys": null,
+                    "source_schema_name": "public",
+                    "source_table": "orders",
+                    "table_engine": null,
+                    "target_table": "pg_orders_cdc",
+                    "use_custom_sorting_key": false
+                  }
+                ],
+                "tls_host": null,
+                "type": "postgres"
+              },
+              "pubsub": null
+            },
+            "stopped": false,
+            "trigger_resync": false
+          }
+        },
+        {
+          "address": "clickhouse_clickpipe_cdc_infrastructure.main[0]",
+          "index": 0,
+          "mode": "managed",
+          "name": "main",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "clickhouse_clickpipe_cdc_infrastructure",
+          "values": {
+            "replica_cpu_millicores": 1000,
+            "replica_memory_gb": 4
+          }
+        },
+        {
+          "address": "clickhouse_postgres_service.app",
+          "mode": "managed",
+          "name": "app",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 1,
+          "sensitive_values": {
+            "password": true,
+            "password_wo": true,
+            "pg_config": {},
+            "pgbouncer_config": {},
+            "tags": {}
+          },
+          "type": "clickhouse_postgres_service",
+          "values": {
+            "cloud_provider": "aws",
+            "ha_type": "none",
+            "name": "tfpv-pipes-pg",
+            "password_wo": null,
+            "password_wo_version": null,
+            "postgres_version": "18",
+            "read_replica_of": null,
+            "region": "us-east-1",
+            "restore_to_point_in_time": null,
+            "size": "m6gd.large"
+          }
+        },
+        {
+          "address": "clickhouse_service.main",
+          "mode": "managed",
+          "name": "main",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 1,
+          "sensitive_values": {
+            "backup_configuration": {},
+            "double_sha1_password_hash": true,
+            "endpoints": {
+              "https": {},
+              "mysql": {},
+              "nativesecure": {}
+            },
+            "generated_password": true,
+            "ip_access": [],
+            "password": true,
+            "password_hash": true,
+            "password_wo": true,
+            "private_endpoint_config": {},
+            "snapshot_configuration": {},
+            "transparent_data_encryption": {}
+          },
+          "type": "clickhouse_service",
+          "values": {
+            "autoscaling_mode": "vertical",
+            "backup_configuration": {
+              "backup_period_in_hours": 24,
+              "backup_retention_period_in_hours": 24,
+              "backup_start_time": null
+            },
+            "backup_id": null,
+            "byoc_id": null,
+            "cloud_provider": "aws",
+            "compliance_type": null,
+            "double_sha1_password_hash": null,
+            "enable_core_dumps": true,
+            "encryption_assumed_role_identifier": null,
+            "encryption_key": null,
+            "endpoints": {
+              "mysql": {
+                "enabled": false
+              }
+            },
+            "idle_scaling": true,
+            "idle_timeout_minutes": 5,
+            "ip_access": [],
+            "max_replica_memory_gb": 8,
+            "max_replicas": null,
+            "max_total_memory_gb": null,
+            "min_replica_memory_gb": 8,
+            "min_replicas": null,
+            "min_total_memory_gb": null,
+            "name": "tfpv-pipes",
+            "num_replicas": 3,
+            "password": null,
+            "password_hash": null,
+            "password_wo": null,
+            "password_wo_version": 1,
+            "query_api_endpoints": null,
+            "region": "us-east-1",
+            "release_channel": "default",
+            "tags": null,
+            "tier": null,
+            "transparent_data_encryption": {
+              "enabled": false,
+              "role_id": null
+            }
+          }
+        },
+        {
+          "address": "clickhouse_service_private_endpoints_attachment.main",
+          "mode": "managed",
+          "name": "main",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 0,
+          "sensitive_values": {
+            "private_endpoint_ids": [
+              false
+            ]
+          },
+          "type": "clickhouse_service_private_endpoints_attachment",
+          "values": {
+            "private_endpoint_ids": [
+              null
+            ]
+          }
+        },
+        {
+          "address": "data.clickhouse_postgres_service_ca_certificates.app",
+          "mode": "data",
+          "name": "app",
+          "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "clickhouse_postgres_service_ca_certificates"
+        },
+        {
+          "address": "random_password.pg",
+          "mode": "managed",
+          "name": "pg",
+          "provider_name": "registry.terraform.io/hashicorp/random",
+          "schema_version": 3,
+          "sensitive_values": {
+            "bcrypt_hash": true,
+            "result": true
+          },
+          "type": "random_password",
+          "values": {
+            "keepers": null,
+            "length": 24,
+            "lower": true,
+            "min_lower": 1,
+            "min_numeric": 1,
+            "min_special": 0,
+            "min_upper": 1,
+            "number": true,
+            "numeric": true,
+            "override_special": null,
+            "special": false,
+            "upper": true
+          }
+        },
+        {
+          "address": "terraform_data.cdc_provisioned[0]",
+          "index": 0,
+          "mode": "managed",
+          "name": "cdc_provisioned",
+          "provider_name": "terraform.io/builtin/terraform",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers_replace": [
+              false
+            ]
+          },
+          "type": "terraform_data",
+          "values": {
+            "input": null,
+            "output": null,
+            "triggers_replace": [
+              null
+            ]
+          }
+        },
+        {
+          "address": "terraform_data.pg_schema",
+          "mode": "managed",
+          "name": "pg_schema",
+          "provider_name": "terraform.io/builtin/terraform",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers_replace": [
+              false
+            ]
+          },
+          "type": "terraform_data",
+          "values": {
+            "input": null,
+            "output": null,
+            "triggers_replace": [
+              null
+            ]
+          }
+        },
+        {
+          "address": "time_sleep.clickpipes_iam",
+          "mode": "managed",
+          "name": "clickpipes_iam",
+          "provider_name": "registry.terraform.io/hashicorp/time",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "time_sleep",
+          "values": {
+            "create_duration": "20s",
+            "destroy_duration": null,
+            "triggers": null
+          }
+        }
+      ]
+    }
+  },
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.15.5",
+    "values": {
+      "root_module": {
+        "resources": [
+          {
+            "address": "data.aws_availability_zones.available",
+            "mode": "data",
+            "name": "available",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "schema_version": 0,
+            "sensitive_values": {
+              "group_names": [
+                false
+              ],
+              "names": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "zone_ids": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ]
+            },
+            "type": "aws_availability_zones",
+            "values": {
+              "all_availability_zones": null,
+              "exclude_names": null,
+              "exclude_zone_ids": null,
+              "filter": null,
+              "group_names": [
+                "us-east-1-zg-1"
+              ],
+              "id": "us-east-1",
+              "names": [
+                "us-east-1a",
+                "us-east-1b",
+                "us-east-1c",
+                "us-east-1d",
+                "us-east-1e",
+                "us-east-1f"
+              ],
+              "state": "available",
+              "timeouts": null,
+              "zone_ids": [
+                "use1-az1",
+                "use1-az2",
+                "use1-az4",
+                "use1-az6",
+                "use1-az3",
+                "use1-az5"
+              ]
+            }
+          },
+          {
+            "address": "data.aws_ssm_parameter.al2023_arm64",
+            "mode": "data",
+            "name": "al2023_arm64",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "schema_version": 0,
+            "sensitive_values": {
+              "value": true
+            },
+            "type": "aws_ssm_parameter",
+            "values": {
+              "arn": "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64",
+              "id": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64",
+              "insecure_value": "ami-04048e843b318bc37",
+              "name": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64",
+              "type": "String",
+              "value": "ami-04048e843b318bc37",
+              "version": 167,
+              "with_decryption": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  "relevant_attributes": [
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "clickhouse_postgres_service.app"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "clickhouse_clickpipe.orders[0]"
+    },
+    {
+      "attribute": [
+        "username"
+      ],
+      "resource": "clickhouse_postgres_service.app"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_iam_role.clickpipes"
+    },
+    {
+      "attribute": [
+        "iam_role"
+      ],
+      "resource": "clickhouse_service.main"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_vpc_endpoint.clickhouse"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_iam_role.client"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_instance.client"
+    },
+    {
+      "attribute": [],
+      "resource": "aws_subnet.public"
+    },
+    {
+      "attribute": [],
+      "resource": "clickhouse_clickpipe.orders"
+    },
+    {
+      "attribute": [
+        "generated_password"
+      ],
+      "resource": "clickhouse_service.main"
+    },
+    {
+      "attribute": [
+        "url"
+      ],
+      "resource": "aws_sqs_queue.events"
+    },
+    {
+      "attribute": [
+        "certificate"
+      ],
+      "resource": "data.clickhouse_postgres_service_ca_certificates.app"
+    },
+    {
+      "attribute": [
+        "dns_entry",
+        0,
+        "dns_name"
+      ],
+      "resource": "aws_vpc_endpoint.clickhouse"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_route_table.public"
+    },
+    {
+      "attribute": [
+        "bucket"
+      ],
+      "resource": "aws_s3_bucket.events"
+    },
+    {
+      "attribute": [
+        "zone_id"
+      ],
+      "resource": "aws_route53_zone.clickhouse"
+    },
+    {
+      "attribute": [
+        "state"
+      ],
+      "resource": "clickhouse_clickpipe.events"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_security_group.clickhouse_endpoint"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_vpc.main"
+    },
+    {
+      "attribute": [
+        "port"
+      ],
+      "resource": "clickhouse_postgres_service.app"
+    },
+    {
+      "attribute": [
+        "bucket_regional_domain_name"
+      ],
+      "resource": "aws_s3_bucket.events"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_sqs_queue.events"
+    },
+    {
+      "attribute": [
+        "hostname"
+      ],
+      "resource": "clickhouse_postgres_service.app"
+    },
+    {
+      "attribute": [
+        "result"
+      ],
+      "resource": "random_password.pg"
+    },
+    {
+      "attribute": [
+        "names"
+      ],
+      "resource": "data.aws_availability_zones.available"
+    },
+    {
+      "attribute": [
+        "cidr_block"
+      ],
+      "resource": "aws_vpc.main"
+    },
+    {
+      "attribute": [
+        "name"
+      ],
+      "resource": "aws_iam_role.client"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_subnet.public[0]"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_s3_bucket.events"
+    },
+    {
+      "attribute": [
+        "value"
+      ],
+      "resource": "data.aws_ssm_parameter.al2023_arm64"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_s3_bucket.events"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_internet_gateway.main"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_sqs_queue.events"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "clickhouse_service.main"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_iam_role.clickpipes"
+    },
+    {
+      "attribute": [
+        "id"
+      ],
+      "resource": "aws_security_group.client"
+    },
+    {
+      "attribute": [
+        "private_endpoint_config",
+        "endpoint_service_id"
+      ],
+      "resource": "clickhouse_service.main"
+    },
+    {
+      "attribute": [
+        "name"
+      ],
+      "resource": "aws_iam_instance_profile.client"
+    },
+    {
+      "attribute": [
+        "private_endpoint_config",
+        "private_dns_hostname"
+      ],
+      "resource": "clickhouse_service.main"
+    }
+  ],
+  "resource_changes": [
+    {
+      "action_reason": "read_because_config_unknown",
+      "address": "data.clickhouse_postgres_service_ca_certificates.app",
+      "change": {
+        "actions": [
+          "read"
+        ],
+        "after": {},
+        "after_sensitive": {},
+        "after_unknown": {
+          "certificate": true,
+          "service_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "data",
+      "name": "app",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_postgres_service_ca_certificates"
+    },
+    {
+      "address": "aws_iam_instance_profile.client",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "tfpv-pipes-client",
+          "path": "/",
+          "role": "tfpv-pipes-client",
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          }
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "name_prefix": true,
+          "tags_all": {},
+          "unique_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_instance_profile"
+    },
+    {
+      "address": "aws_iam_role.clickpipes",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "description": null,
+          "force_detach_policies": false,
+          "max_session_duration": 3600,
+          "name": "tfpv-pipes-clickpipes",
+          "path": "/",
+          "permissions_boundary": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          }
+        },
+        "after_sensitive": {
+          "inline_policy": [],
+          "managed_policy_arns": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "assume_role_policy": true,
+          "create_date": true,
+          "id": true,
+          "inline_policy": true,
+          "managed_policy_arns": true,
+          "name_prefix": true,
+          "tags_all": {},
+          "unique_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickpipes",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role"
+    },
+    {
+      "address": "aws_iam_role.client",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+          "description": null,
+          "force_detach_policies": false,
+          "max_session_duration": 3600,
+          "name": "tfpv-pipes-client",
+          "path": "/",
+          "permissions_boundary": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          }
+        },
+        "after_sensitive": {
+          "inline_policy": [],
+          "managed_policy_arns": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "inline_policy": true,
+          "managed_policy_arns": true,
+          "name_prefix": true,
+          "tags_all": {},
+          "unique_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role"
+    },
+    {
+      "address": "aws_iam_role_policy.clickpipes",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "read-events"
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "name_prefix": true,
+          "policy": true,
+          "role": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickpipes",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "address": "aws_iam_role_policy.client_produce",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "produce-events"
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "name_prefix": true,
+          "policy": true,
+          "role": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client_produce",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.client_ssm",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "policy_arn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+          "role": "tfpv-pipes-client"
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client_ssm",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role_policy_attachment"
+    },
+    {
+      "address": "aws_instance.client",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "ami": "ami-04048e843b318bc37",
+          "associate_public_ip_address": true,
+          "credit_specification": [],
+          "get_password_data": false,
+          "hibernation": null,
+          "iam_instance_profile": "tfpv-pipes-client",
+          "instance_type": "t4g.micro",
+          "launch_template": [],
+          "source_dest_check": true,
+          "tags": {
+            "Name": "tfpv-pipes-client"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes-client",
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null,
+          "user_data_replace_on_change": false,
+          "volume_tags": null
+        },
+        "after_sensitive": {
+          "ami": true,
+          "capacity_reservation_specification": [],
+          "cpu_options": [],
+          "credit_specification": [],
+          "ebs_block_device": [],
+          "enclave_options": [],
+          "ephemeral_block_device": [],
+          "instance_market_options": [],
+          "ipv6_addresses": [],
+          "launch_template": [],
+          "maintenance_options": [],
+          "metadata_options": [],
+          "network_interface": [],
+          "private_dns_name_options": [],
+          "root_block_device": [],
+          "secondary_private_ips": [],
+          "security_groups": [],
+          "tags": {},
+          "tags_all": {},
+          "vpc_security_group_ids": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "availability_zone": true,
+          "capacity_reservation_specification": true,
+          "cpu_core_count": true,
+          "cpu_options": true,
+          "cpu_threads_per_core": true,
+          "credit_specification": [],
+          "disable_api_stop": true,
+          "disable_api_termination": true,
+          "ebs_block_device": true,
+          "ebs_optimized": true,
+          "enable_primary_ipv6": true,
+          "enclave_options": true,
+          "ephemeral_block_device": true,
+          "host_id": true,
+          "host_resource_group_arn": true,
+          "id": true,
+          "instance_initiated_shutdown_behavior": true,
+          "instance_lifecycle": true,
+          "instance_market_options": true,
+          "instance_state": true,
+          "ipv6_address_count": true,
+          "ipv6_addresses": true,
+          "key_name": true,
+          "launch_template": [],
+          "maintenance_options": true,
+          "metadata_options": true,
+          "monitoring": true,
+          "network_interface": true,
+          "outpost_arn": true,
+          "password_data": true,
+          "placement_group": true,
+          "placement_partition_number": true,
+          "primary_network_interface_id": true,
+          "private_dns": true,
+          "private_dns_name_options": true,
+          "private_ip": true,
+          "public_dns": true,
+          "public_ip": true,
+          "root_block_device": true,
+          "secondary_private_ips": true,
+          "security_groups": true,
+          "spot_instance_request_id": true,
+          "subnet_id": true,
+          "tags": {},
+          "tags_all": {},
+          "tenancy": true,
+          "user_data": true,
+          "user_data_base64": true,
+          "vpc_security_group_ids": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_instance"
+    },
+    {
+      "address": "aws_internet_gateway.main",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "owner_id": true,
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_internet_gateway"
+    },
+    {
+      "address": "aws_route53_record.clickhouse",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "alias": [],
+          "cidr_routing_policy": [],
+          "failover_routing_policy": [],
+          "geolocation_routing_policy": [],
+          "geoproximity_routing_policy": [],
+          "health_check_id": null,
+          "latency_routing_policy": [],
+          "multivalue_answer_routing_policy": null,
+          "set_identifier": null,
+          "timeouts": null,
+          "ttl": 300,
+          "type": "CNAME",
+          "weighted_routing_policy": []
+        },
+        "after_sensitive": {
+          "alias": [],
+          "cidr_routing_policy": [],
+          "failover_routing_policy": [],
+          "geolocation_routing_policy": [],
+          "geoproximity_routing_policy": [],
+          "latency_routing_policy": [],
+          "records": [],
+          "weighted_routing_policy": []
+        },
+        "after_unknown": {
+          "alias": [],
+          "allow_overwrite": true,
+          "cidr_routing_policy": [],
+          "failover_routing_policy": [],
+          "fqdn": true,
+          "geolocation_routing_policy": [],
+          "geoproximity_routing_policy": [],
+          "id": true,
+          "latency_routing_policy": [],
+          "name": true,
+          "records": true,
+          "weighted_routing_policy": [],
+          "zone_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_route53_record"
+    },
+    {
+      "address": "aws_route53_zone.clickhouse",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "comment": "Managed by Terraform",
+          "delegation_set_id": null,
+          "force_destroy": false,
+          "name": "us-east-1.vpce.aws.clickhouse.cloud",
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null,
+          "vpc": [
+            {}
+          ]
+        },
+        "after_sensitive": {
+          "name_servers": [],
+          "tags_all": {},
+          "vpc": [
+            {}
+          ]
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "name_servers": true,
+          "primary_name_server": true,
+          "tags_all": {},
+          "vpc": [
+            {
+              "vpc_id": true,
+              "vpc_region": true
+            }
+          ],
+          "zone_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_route53_zone"
+    },
+    {
+      "address": "aws_route_table.public",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "route": [
+            {
+              "carrier_gateway_id": "",
+              "cidr_block": "0.0.0.0/0",
+              "core_network_arn": "",
+              "destination_prefix_list_id": "",
+              "egress_only_gateway_id": "",
+              "ipv6_cidr_block": "",
+              "local_gateway_id": "",
+              "nat_gateway_id": "",
+              "network_interface_id": "",
+              "transit_gateway_id": "",
+              "vpc_endpoint_id": "",
+              "vpc_peering_connection_id": ""
+            }
+          ],
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "propagating_vgws": [],
+          "route": [
+            {}
+          ],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "owner_id": true,
+          "propagating_vgws": true,
+          "route": [
+            {
+              "gateway_id": true
+            }
+          ],
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_route_table"
+    },
+    {
+      "address": "aws_route_table_association.public[0]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "gateway_id": null,
+          "timeouts": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "route_table_id": true,
+          "subnet_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 0,
+      "mode": "managed",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_route_table_association"
+    },
+    {
+      "address": "aws_route_table_association.public[1]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "gateway_id": null,
+          "timeouts": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "route_table_id": true,
+          "subnet_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 1,
+      "mode": "managed",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_route_table_association"
+    },
+    {
+      "address": "aws_s3_bucket.events",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "bucket_prefix": "tfpv-pipes-events-",
+          "force_destroy": true,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "cors_rule": [],
+          "grant": [],
+          "lifecycle_rule": [],
+          "logging": [],
+          "object_lock_configuration": [],
+          "replication_configuration": [],
+          "server_side_encryption_configuration": [],
+          "tags_all": {},
+          "versioning": [],
+          "website": []
+        },
+        "after_unknown": {
+          "acceleration_status": true,
+          "acl": true,
+          "arn": true,
+          "bucket": true,
+          "bucket_domain_name": true,
+          "bucket_regional_domain_name": true,
+          "cors_rule": true,
+          "grant": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "lifecycle_rule": true,
+          "logging": true,
+          "object_lock_configuration": true,
+          "object_lock_enabled": true,
+          "policy": true,
+          "region": true,
+          "replication_configuration": true,
+          "request_payer": true,
+          "server_side_encryption_configuration": true,
+          "tags_all": {},
+          "versioning": true,
+          "website": true,
+          "website_domain": true,
+          "website_endpoint": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "events",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_s3_bucket"
+    },
+    {
+      "address": "aws_s3_bucket_notification.events",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "eventbridge": false,
+          "lambda_function": [],
+          "queue": [
+            {
+              "events": [
+                "s3:ObjectCreated:*"
+              ],
+              "filter_prefix": "events/",
+              "filter_suffix": ".json"
+            }
+          ],
+          "topic": []
+        },
+        "after_sensitive": {
+          "lambda_function": [],
+          "queue": [
+            {
+              "events": [
+                false
+              ]
+            }
+          ],
+          "topic": []
+        },
+        "after_unknown": {
+          "bucket": true,
+          "id": true,
+          "lambda_function": [],
+          "queue": [
+            {
+              "events": [
+                false
+              ],
+              "id": true,
+              "queue_arn": true
+            }
+          ],
+          "topic": []
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "events",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_s3_bucket_notification"
+    },
+    {
+      "address": "aws_s3_object.seed",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "cache_control": null,
+          "checksum_algorithm": null,
+          "content": "{\"id\":\"seed-1\",\"ts\":\"2026-01-01 00:00:00.000\",\"event_type\":\"signup\",\"user_id\":1,\"value\":0}\n{\"id\":\"seed-2\",\"ts\":\"2026-01-01 00:00:01.000\",\"event_type\":\"login\",\"user_id\":1,\"value\":0}\n",
+          "content_base64": null,
+          "content_disposition": null,
+          "content_encoding": null,
+          "content_language": null,
+          "content_type": "application/json",
+          "force_destroy": false,
+          "key": "events/0000-seed.json",
+          "metadata": null,
+          "object_lock_legal_hold_status": null,
+          "object_lock_mode": null,
+          "object_lock_retain_until_date": null,
+          "override_provider": [],
+          "source": null,
+          "source_hash": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "website_redirect": null
+        },
+        "after_sensitive": {
+          "override_provider": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "acl": true,
+          "arn": true,
+          "bucket": true,
+          "bucket_key_enabled": true,
+          "checksum_crc32": true,
+          "checksum_crc32c": true,
+          "checksum_crc64nvme": true,
+          "checksum_sha1": true,
+          "checksum_sha256": true,
+          "etag": true,
+          "id": true,
+          "kms_key_id": true,
+          "override_provider": [],
+          "server_side_encryption": true,
+          "storage_class": true,
+          "tags_all": {},
+          "version_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "seed",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_s3_object"
+    },
+    {
+      "address": "aws_security_group.clickhouse_endpoint",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "description": "Interface endpoint to ClickHouse Cloud",
+          "name": "tfpv-pipes-clickhouse-endpoint",
+          "revoke_rules_on_delete": false,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "egress": [],
+          "ingress": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "egress": true,
+          "id": true,
+          "ingress": true,
+          "name_prefix": true,
+          "owner_id": true,
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse_endpoint",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_security_group"
+    },
+    {
+      "address": "aws_security_group.client",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "description": "Producer and ClickHouse client, egress only",
+          "name": "tfpv-pipes-client",
+          "revoke_rules_on_delete": false,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "egress": [],
+          "ingress": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "egress": true,
+          "id": true,
+          "ingress": true,
+          "name_prefix": true,
+          "owner_id": true,
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_security_group"
+    },
+    {
+      "address": "aws_sqs_queue.events",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "content_based_deduplication": false,
+          "delay_seconds": 0,
+          "fifo_queue": false,
+          "kms_master_key_id": null,
+          "max_message_size": 262144,
+          "message_retention_seconds": 86400,
+          "name": "tfpv-pipes-events",
+          "receive_wait_time_seconds": 0,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null,
+          "visibility_timeout_seconds": 300
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "deduplication_scope": true,
+          "fifo_throughput_limit": true,
+          "id": true,
+          "kms_data_key_reuse_period_seconds": true,
+          "name_prefix": true,
+          "policy": true,
+          "redrive_allow_policy": true,
+          "redrive_policy": true,
+          "sqs_managed_sse_enabled": true,
+          "tags_all": {},
+          "url": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "events",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sqs_queue"
+    },
+    {
+      "address": "aws_sqs_queue_policy.events",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {},
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "policy": true,
+          "queue_url": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "events",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sqs_queue_policy"
+    },
+    {
+      "address": "aws_subnet.public[0]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "assign_ipv6_address_on_creation": false,
+          "availability_zone": "us-east-1a",
+          "cidr_block": "10.43.0.0/24",
+          "customer_owned_ipv4_pool": null,
+          "enable_dns64": false,
+          "enable_lni_at_device_index": null,
+          "enable_resource_name_dns_a_record_on_launch": false,
+          "enable_resource_name_dns_aaaa_record_on_launch": false,
+          "ipv6_cidr_block": null,
+          "ipv6_native": false,
+          "map_customer_owned_ip_on_launch": null,
+          "map_public_ip_on_launch": false,
+          "outpost_arn": null,
+          "tags": {
+            "Name": "tfpv-pipes-public-0"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes-public-0",
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "availability_zone_id": true,
+          "id": true,
+          "ipv6_cidr_block_association_id": true,
+          "owner_id": true,
+          "private_dns_hostname_type_on_launch": true,
+          "tags": {},
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 0,
+      "mode": "managed",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_subnet"
+    },
+    {
+      "address": "aws_subnet.public[1]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "assign_ipv6_address_on_creation": false,
+          "availability_zone": "us-east-1b",
+          "cidr_block": "10.43.1.0/24",
+          "customer_owned_ipv4_pool": null,
+          "enable_dns64": false,
+          "enable_lni_at_device_index": null,
+          "enable_resource_name_dns_a_record_on_launch": false,
+          "enable_resource_name_dns_aaaa_record_on_launch": false,
+          "ipv6_cidr_block": null,
+          "ipv6_native": false,
+          "map_customer_owned_ip_on_launch": null,
+          "map_public_ip_on_launch": false,
+          "outpost_arn": null,
+          "tags": {
+            "Name": "tfpv-pipes-public-1"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes-public-1",
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null
+        },
+        "after_sensitive": {
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "availability_zone_id": true,
+          "id": true,
+          "ipv6_cidr_block_association_id": true,
+          "owner_id": true,
+          "private_dns_hostname_type_on_launch": true,
+          "tags": {},
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 1,
+      "mode": "managed",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_subnet"
+    },
+    {
+      "address": "aws_vpc.main",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "assign_generated_ipv6_cidr_block": null,
+          "cidr_block": "10.43.0.0/16",
+          "enable_dns_hostnames": true,
+          "enable_dns_support": true,
+          "instance_tenancy": "default",
+          "ipv4_ipam_pool_id": null,
+          "ipv4_netmask_length": null,
+          "ipv6_ipam_pool_id": null,
+          "ipv6_netmask_length": null,
+          "tags": {
+            "Name": "tfpv-pipes"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes",
+            "Project": "tfpv-pipes"
+          }
+        },
+        "after_sensitive": {
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "default_network_acl_id": true,
+          "default_route_table_id": true,
+          "default_security_group_id": true,
+          "dhcp_options_id": true,
+          "enable_network_address_usage_metrics": true,
+          "id": true,
+          "ipv6_association_id": true,
+          "ipv6_cidr_block": true,
+          "ipv6_cidr_block_network_border_group": true,
+          "main_route_table_id": true,
+          "owner_id": true,
+          "tags": {},
+          "tags_all": {}
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc"
+    },
+    {
+      "address": "aws_vpc_endpoint.clickhouse",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "auto_accept": null,
+          "private_dns_enabled": false,
+          "resource_configuration_arn": null,
+          "service_network_arn": null,
+          "tags": {
+            "Name": "tfpv-pipes-clickhouse"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes-clickhouse",
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null,
+          "vpc_endpoint_type": "Interface"
+        },
+        "after_sensitive": {
+          "cidr_blocks": [],
+          "dns_entry": [],
+          "dns_options": [],
+          "network_interface_ids": [],
+          "route_table_ids": [],
+          "security_group_ids": [],
+          "subnet_configuration": [],
+          "subnet_ids": [],
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "cidr_blocks": true,
+          "dns_entry": true,
+          "dns_options": true,
+          "id": true,
+          "ip_address_type": true,
+          "network_interface_ids": true,
+          "owner_id": true,
+          "policy": true,
+          "prefix_list_id": true,
+          "requester_managed": true,
+          "route_table_ids": true,
+          "security_group_ids": true,
+          "service_name": true,
+          "service_region": true,
+          "state": true,
+          "subnet_configuration": true,
+          "subnet_ids": true,
+          "tags": {},
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc_endpoint"
+    },
+    {
+      "address": "aws_vpc_endpoint.s3",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "auto_accept": null,
+          "resource_configuration_arn": null,
+          "service_name": "com.amazonaws.us-east-1.s3",
+          "service_network_arn": null,
+          "tags": {
+            "Name": "tfpv-pipes-s3"
+          },
+          "tags_all": {
+            "Name": "tfpv-pipes-s3",
+            "Project": "tfpv-pipes"
+          },
+          "timeouts": null,
+          "vpc_endpoint_type": "Gateway"
+        },
+        "after_sensitive": {
+          "cidr_blocks": [],
+          "dns_entry": [],
+          "dns_options": [],
+          "network_interface_ids": [],
+          "route_table_ids": [],
+          "security_group_ids": [],
+          "subnet_configuration": [],
+          "subnet_ids": [],
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "cidr_blocks": true,
+          "dns_entry": true,
+          "dns_options": true,
+          "id": true,
+          "ip_address_type": true,
+          "network_interface_ids": true,
+          "owner_id": true,
+          "policy": true,
+          "prefix_list_id": true,
+          "private_dns_enabled": true,
+          "requester_managed": true,
+          "route_table_ids": true,
+          "security_group_ids": true,
+          "service_region": true,
+          "state": true,
+          "subnet_configuration": true,
+          "subnet_ids": true,
+          "tags": {},
+          "tags_all": {},
+          "vpc_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "s3",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc_endpoint"
+    },
+    {
+      "address": "aws_vpc_security_group_egress_rule.client_all",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "cidr_ipv4": "0.0.0.0/0",
+          "cidr_ipv6": null,
+          "description": null,
+          "from_port": null,
+          "ip_protocol": "-1",
+          "prefix_list_id": null,
+          "referenced_security_group_id": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "to_port": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "security_group_id": true,
+          "security_group_rule_id": true,
+          "tags_all": {}
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "client_all",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc_security_group_egress_rule"
+    },
+    {
+      "address": "aws_vpc_security_group_ingress_rule.clickhouse_https",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "cidr_ipv4": null,
+          "cidr_ipv6": null,
+          "description": "ClickHouse HTTPS",
+          "from_port": 8443,
+          "ip_protocol": "tcp",
+          "prefix_list_id": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "to_port": 8443
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "referenced_security_group_id": true,
+          "security_group_id": true,
+          "security_group_rule_id": true,
+          "tags_all": {}
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse_https",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc_security_group_ingress_rule"
+    },
+    {
+      "address": "aws_vpc_security_group_ingress_rule.clickhouse_native",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "cidr_ipv4": null,
+          "cidr_ipv6": null,
+          "description": "ClickHouse native protocol (TLS)",
+          "from_port": 9440,
+          "ip_protocol": "tcp",
+          "prefix_list_id": null,
+          "tags": null,
+          "tags_all": {
+            "Project": "tfpv-pipes"
+          },
+          "to_port": 9440
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "referenced_security_group_id": true,
+          "security_group_id": true,
+          "security_group_rule_id": true,
+          "tags_all": {}
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickhouse_native",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_vpc_security_group_ingress_rule"
+    },
+    {
+      "address": "clickhouse_clickpipe.events",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "destination": {
+            "columns": [
+              {
+                "name": "id",
+                "type": "String"
+              },
+              {
+                "name": "ts",
+                "type": "DateTime64(3)"
+              },
+              {
+                "name": "event_type",
+                "type": "LowCardinality(String)"
+              },
+              {
+                "name": "user_id",
+                "type": "UInt32"
+              },
+              {
+                "name": "value",
+                "type": "Float64"
+              }
+            ],
+            "database": "default",
+            "managed_table": true,
+            "roles": null,
+            "table": "events",
+            "table_definition": {
+              "engine": {
+                "column_ids": null,
+                "type": "MergeTree",
+                "version_column_id": null
+              },
+              "partition_by": null,
+              "primary_key": null,
+              "sorting_key": [
+                "event_type",
+                "ts"
+              ],
+              "ttl": null
+            }
+          },
+          "field_mappings": [
+            {
+              "destination_field": "id",
+              "source_field": "id"
+            },
+            {
+              "destination_field": "ts",
+              "source_field": "ts"
+            },
+            {
+              "destination_field": "event_type",
+              "source_field": "event_type"
+            },
+            {
+              "destination_field": "user_id",
+              "source_field": "user_id"
+            },
+            {
+              "destination_field": "value",
+              "source_field": "value"
+            }
+          ],
+          "name": "S3 events",
+          "scaling": null,
+          "settings": null,
+          "source": {
+            "bigquery": null,
+            "kafka": null,
+            "kinesis": null,
+            "mongodb": null,
+            "mysql": null,
+            "object_storage": {
+              "access_key": null,
+              "authentication": "IAM_ROLE",
+              "azure_container_name": null,
+              "compression": null,
+              "connection_string": null,
+              "delimiter": null,
+              "format": "JSONEachRow",
+              "is_continuous": true,
+              "path": null,
+              "service_account_key": null,
+              "skip_initial_load": null,
+              "start_after": null,
+              "type": "s3"
+            },
+            "postgres": null,
+            "pubsub": null
+          },
+          "stopped": false,
+          "trigger_resync": false
+        },
+        "after_sensitive": {
+          "destination": {
+            "columns": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ],
+            "table_definition": {
+              "engine": {},
+              "sorting_key": [
+                false,
+                false
+              ]
+            }
+          },
+          "field_mappings": [
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "source": {
+            "object_storage": {
+              "connection_string": true,
+              "service_account_key": true
+            }
+          }
+        },
+        "after_unknown": {
+          "destination": {
+            "columns": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ],
+            "table_definition": {
+              "engine": {},
+              "sorting_key": [
+                false,
+                false
+              ]
+            }
+          },
+          "field_mappings": [
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "id": true,
+          "service_id": true,
+          "source": {
+            "object_storage": {
+              "iam_role": true,
+              "queue_url": true,
+              "url": true
+            }
+          },
+          "state": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "events",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_clickpipe"
+    },
+    {
+      "address": "clickhouse_clickpipe.orders[0]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "destination": {
+            "columns": null,
+            "database": "default",
+            "managed_table": true,
+            "roles": null,
+            "table": null,
+            "table_definition": null
+          },
+          "field_mappings": null,
+          "name": "Postgres orders",
+          "scaling": null,
+          "settings": null,
+          "source": {
+            "bigquery": null,
+            "kafka": null,
+            "kinesis": null,
+            "mongodb": null,
+            "mysql": null,
+            "object_storage": null,
+            "postgres": {
+              "authentication": "basic",
+              "credentials": {
+                "password_wo": null,
+                "password_wo_version": null
+              },
+              "database": "postgres",
+              "disable_tls": false,
+              "iam_role": null,
+              "settings": {
+                "delete_on_merge": false,
+                "enable_failover_slots": false,
+                "publication_name": null,
+                "replication_mode": "cdc",
+                "replication_slot_name": null
+              },
+              "skip_cert_verification": false,
+              "ssh_key_resource_id": null,
+              "table_mappings": [
+                {
+                  "excluded_columns": null,
+                  "partition_by_expr": null,
+                  "partition_key": null,
+                  "sorting_keys": null,
+                  "source_schema_name": "public",
+                  "source_table": "orders",
+                  "table_engine": null,
+                  "target_table": "pg_orders_cdc",
+                  "use_custom_sorting_key": false
+                }
+              ],
+              "tls_host": null,
+              "type": "postgres"
+            },
+            "pubsub": null
+          },
+          "stopped": false,
+          "trigger_resync": false
+        },
+        "after_sensitive": {
+          "destination": {},
+          "source": {
+            "postgres": {
+              "credentials": true,
+              "settings": {},
+              "table_mappings": [
+                {}
+              ]
+            }
+          }
+        },
+        "after_unknown": {
+          "destination": {},
+          "id": true,
+          "service_id": true,
+          "source": {
+            "postgres": {
+              "ca_certificate": true,
+              "credentials": {
+                "password": true,
+                "username": true
+              },
+              "host": true,
+              "port": true,
+              "settings": {
+                "allow_nullable_columns": true,
+                "initial_load_parallelism": true,
+                "pull_batch_size": true,
+                "snapshot_num_rows_per_partition": true,
+                "snapshot_number_of_parallel_tables": true,
+                "sync_interval_seconds": true
+              },
+              "table_mappings": [
+                {}
+              ]
+            }
+          },
+          "state": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 0,
+      "mode": "managed",
+      "name": "orders",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_clickpipe"
+    },
+    {
+      "address": "clickhouse_clickpipe_cdc_infrastructure.main[0]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "replica_cpu_millicores": 1000,
+          "replica_memory_gb": 4
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "service_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 0,
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_clickpipe_cdc_infrastructure"
+    },
+    {
+      "address": "clickhouse_postgres_service.app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "cloud_provider": "aws",
+          "ha_type": "none",
+          "name": "tfpv-pipes-pg",
+          "password_wo": null,
+          "password_wo_version": null,
+          "postgres_version": "18",
+          "read_replica_of": null,
+          "region": "us-east-1",
+          "restore_to_point_in_time": null,
+          "size": "m6gd.large"
+        },
+        "after_sensitive": {
+          "password": true,
+          "password_wo": true,
+          "pg_config": {},
+          "pgbouncer_config": {},
+          "tags": {}
+        },
+        "after_unknown": {
+          "created_at": true,
+          "hostname": true,
+          "id": true,
+          "is_primary": true,
+          "password": true,
+          "pg_config": true,
+          "pgbouncer_config": true,
+          "port": true,
+          "state": true,
+          "tags": true,
+          "username": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "app",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_postgres_service"
+    },
+    {
+      "address": "clickhouse_service.main",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "autoscaling_mode": "vertical",
+          "backup_configuration": {
+            "backup_period_in_hours": 24,
+            "backup_retention_period_in_hours": 24,
+            "backup_start_time": null
+          },
+          "backup_id": null,
+          "byoc_id": null,
+          "cloud_provider": "aws",
+          "compliance_type": null,
+          "double_sha1_password_hash": null,
+          "enable_core_dumps": true,
+          "encryption_assumed_role_identifier": null,
+          "encryption_key": null,
+          "endpoints": {
+            "mysql": {
+              "enabled": false
+            }
+          },
+          "idle_scaling": true,
+          "idle_timeout_minutes": 5,
+          "ip_access": [],
+          "max_replica_memory_gb": 8,
+          "max_replicas": null,
+          "max_total_memory_gb": null,
+          "min_replica_memory_gb": 8,
+          "min_replicas": null,
+          "min_total_memory_gb": null,
+          "name": "tfpv-pipes",
+          "num_replicas": 3,
+          "password": null,
+          "password_hash": null,
+          "password_wo": null,
+          "password_wo_version": 1,
+          "query_api_endpoints": null,
+          "region": "us-east-1",
+          "release_channel": "default",
+          "tags": null,
+          "tier": null,
+          "transparent_data_encryption": {
+            "enabled": false,
+            "role_id": null
+          }
+        },
+        "after_sensitive": {
+          "backup_configuration": {},
+          "double_sha1_password_hash": true,
+          "endpoints": {
+            "https": {},
+            "mysql": {},
+            "nativesecure": {}
+          },
+          "generated_password": true,
+          "ip_access": [],
+          "password": true,
+          "password_hash": true,
+          "password_wo": true,
+          "private_endpoint_config": {},
+          "snapshot_configuration": {},
+          "transparent_data_encryption": {}
+        },
+        "after_unknown": {
+          "backup_configuration": {},
+          "endpoints": {
+            "https": true,
+            "mysql": {
+              "host": true,
+              "port": true
+            },
+            "nativesecure": true
+          },
+          "generated_password": true,
+          "iam_role": true,
+          "id": true,
+          "ip_access": [],
+          "is_primary": true,
+          "private_endpoint_config": true,
+          "profile": true,
+          "readonly": true,
+          "snapshot_configuration": true,
+          "transparent_data_encryption": {},
+          "warehouse_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_service"
+    },
+    {
+      "address": "clickhouse_service_private_endpoints_attachment.main",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "private_endpoint_ids": [
+            null
+          ]
+        },
+        "after_sensitive": {
+          "private_endpoint_ids": [
+            false
+          ]
+        },
+        "after_unknown": {
+          "private_endpoint_ids": [
+            true
+          ],
+          "service_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/clickhouse/clickhouse",
+      "type": "clickhouse_service_private_endpoints_attachment"
+    },
+    {
+      "address": "random_password.pg",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "keepers": null,
+          "length": 24,
+          "lower": true,
+          "min_lower": 1,
+          "min_numeric": 1,
+          "min_special": 0,
+          "min_upper": 1,
+          "number": true,
+          "numeric": true,
+          "override_special": null,
+          "special": false,
+          "upper": true
+        },
+        "after_sensitive": {
+          "bcrypt_hash": true,
+          "result": true
+        },
+        "after_unknown": {
+          "bcrypt_hash": true,
+          "id": true,
+          "result": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "pg",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "type": "random_password"
+    },
+    {
+      "address": "terraform_data.cdc_provisioned[0]",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "input": null,
+          "output": null,
+          "triggers_replace": [
+            null
+          ]
+        },
+        "after_sensitive": {
+          "triggers_replace": [
+            false
+          ]
+        },
+        "after_unknown": {
+          "id": true,
+          "triggers_replace": [
+            true
+          ]
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "index": 0,
+      "mode": "managed",
+      "name": "cdc_provisioned",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "terraform_data.pg_schema",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "input": null,
+          "output": null,
+          "triggers_replace": [
+            null
+          ]
+        },
+        "after_sensitive": {
+          "triggers_replace": [
+            false
+          ]
+        },
+        "after_unknown": {
+          "id": true,
+          "triggers_replace": [
+            true
+          ]
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "pg_schema",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "time_sleep.clickpipes_iam",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "create_duration": "20s",
+          "destroy_duration": null,
+          "triggers": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "clickpipes_iam",
+      "provider_name": "registry.terraform.io/hashicorp/time",
+      "type": "time_sleep"
+    }
+  ],
+  "terraform_version": "1.15.5",
+  "timestamp": "2026-10-20T10:08:01Z",
+  "variables": {
+    "name": {
+      "value": "tfpv-pipes"
+    },
+    "pg_pipe": {
+      "value": true
+    },
+    "pg_size": {
+      "value": "m6gd.large"
+    },
+    "region": {
+      "value": "us-east-1"
+    }
+  }
+}

@@ -4,6 +4,7 @@
 # Data path:
 #   EC2 producer -> S3 (gateway endpoint) -> S3 event -> SQS
 #   ClickPipe (IAM role) <- SQS notification, reads the object -> events table
+#   EC2 -> ClickHouse Managed Postgres (public, TLS) -> CDC ClickPipe -> pg_orders_cdc
 # Query path:
 #   EC2 -> interface VPC endpoint (PrivateLink) -> ClickHouse service
 #
@@ -28,6 +29,10 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.12"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -38,6 +43,18 @@ variable "region" {
 
 variable "name" {
   default = "tfpv-pipes"
+}
+
+variable "pg_size" {
+  description = "Managed Postgres instance size; m6gd.large is the smallest the docs name"
+  type        = string
+  default     = "m6gd.large"
+}
+
+variable "pg_pipe" {
+  description = "Replicate Postgres into ClickHouse with a CDC ClickPipe (billed CDC workers)"
+  type        = bool
+  default     = true
 }
 
 provider "aws" {
@@ -398,6 +415,142 @@ resource "clickhouse_clickpipe" "events" {
 }
 
 ########################################################################
+# ClickHouse Managed Postgres
+#
+# The Postgres service has no IP allowlist or private endpoint in the
+# provider yet: EC2 and ClickHouse reach it on its public hostname, TLS.
+#
+# The CDC ClickPipe keeps pg_orders_cdc in sync. `just pg-link` adds
+# pg_orders_live, a PostgreSQL engine table that reads Postgres per query
+# (SQL, not in the plan).
+########################################################################
+
+resource "random_password" "pg" {
+  length      = 24
+  special     = false
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
+}
+
+resource "clickhouse_postgres_service" "app" {
+  name             = "${var.name}-pg"
+  cloud_provider   = "aws"
+  region           = var.region
+  size             = var.pg_size
+  postgres_version = "18"
+  ha_type          = "none"
+
+  # `just pg-link`, `just produce-pg` and the pipe need it back, so not
+  # password_wo
+  password = random_password.pg.result
+}
+
+data "clickhouse_postgres_service_ca_certificates" "app" {
+  service_id = clickhouse_postgres_service.app.id
+}
+
+# The CDC pipe checks the source table at creation, and
+# the provider has no table resource. Runs psql where terraform runs.
+resource "terraform_data" "pg_schema" {
+  triggers_replace = [clickhouse_postgres_service.app.id]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      psql -v ON_ERROR_STOP=1 -c "
+        CREATE TABLE IF NOT EXISTS public.orders (
+          id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          created_at  timestamptz NOT NULL DEFAULT now(),
+          customer_id integer NOT NULL,
+          status      text NOT NULL,
+          amount      numeric(10,2) NOT NULL
+        )"
+    EOT
+    environment = {
+      PGHOST     = clickhouse_postgres_service.app.hostname
+      PGPORT     = tostring(clickhouse_postgres_service.app.port)
+      PGUSER     = clickhouse_postgres_service.app.username
+      PGPASSWORD = random_password.pg.result
+      PGDATABASE = "postgres"
+      PGSSLMODE  = "require"
+    }
+  }
+}
+
+resource "clickhouse_clickpipe" "orders" {
+  count      = var.pg_pipe ? 1 : 0
+  name       = "Postgres orders"
+  service_id = clickhouse_service.main.id
+  depends_on = [terraform_data.pg_schema]
+
+  source = {
+    postgres = {
+      type           = "postgres"
+      host           = clickhouse_postgres_service.app.hostname
+      port           = clickhouse_postgres_service.app.port
+      database       = "postgres"
+      ca_certificate = data.clickhouse_postgres_service_ca_certificates.app.certificate
+      credentials = {
+        username = clickhouse_postgres_service.app.username
+        password = random_password.pg.result
+      }
+      settings = {
+        replication_mode = "cdc"
+      }
+      table_mappings = [
+        { source_schema_name = "public", source_table = "orders", target_table = "pg_orders_cdc" },
+      ]
+    }
+  }
+
+  destination = {
+    database = "default"
+  }
+}
+
+# The CDC scaling API returns 404 until the first DB pipe has provisioned
+# (about 4 min). The provider's own check passes before that, so poll the
+# pipe state through the Cloud API until Running. Uses the provider's env
+# credentials.
+resource "terraform_data" "cdc_provisioned" {
+  count            = var.pg_pipe ? 1 : 0
+  triggers_replace = [clickhouse_clickpipe.orders[0].id]
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      set -euo pipefail
+      url="https://api.clickhouse.cloud/v1/organizations/$CLICKHOUSE_ORG_ID/services/$SERVICE_ID/clickpipes/$PIPE_ID"
+      for _ in $(seq 60); do
+        state=$(curl -sS --fail --user "$CLICKHOUSE_CLOUD_API_KEY:$CLICKHOUSE_CLOUD_API_SECRET" "$url" |
+          python3 -c 'import json, sys; print(json.load(sys.stdin)["result"]["state"])')
+        echo "pipe $PIPE_ID: $state"
+        case "$state" in
+          Running) exit 0 ;;
+          Failed | InternalError) exit 1 ;;
+        esac
+        sleep 15
+      done
+      echo "pipe not Running after 15 min" >&2
+      exit 1
+    EOT
+    environment = {
+      SERVICE_ID = clickhouse_service.main.id
+      PIPE_ID    = clickhouse_clickpipe.orders[0].id
+    }
+  }
+}
+
+# Smallest CDC workers.
+resource "clickhouse_clickpipe_cdc_infrastructure" "main" {
+  count                  = var.pg_pipe ? 1 : 0
+  service_id             = clickhouse_service.main.id
+  replica_cpu_millicores = 1000
+  replica_memory_gb      = 4
+  depends_on             = [terraform_data.cdc_provisioned]
+}
+
+########################################################################
 # Outputs
 ########################################################################
 
@@ -420,4 +573,21 @@ output "events_bucket" {
 
 output "clickpipe_state" {
   value = clickhouse_clickpipe.events.state
+}
+
+output "pg_host" {
+  value = clickhouse_postgres_service.app.hostname
+}
+
+output "pg_user" {
+  value = clickhouse_postgres_service.app.username
+}
+
+output "pg_password" {
+  value     = random_password.pg.result
+  sensitive = true
+}
+
+output "pg_clickpipe_state" {
+  value = one(clickhouse_clickpipe.orders[*].state)
 }

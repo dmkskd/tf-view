@@ -825,6 +825,8 @@ describe("security: diagnostics are plain text", () => {
 describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
   const CH = "registry.terraform.io/clickhouse/clickhouse";
   const LOC = "AWS us-east-1";
+  const PIPES = "ClickPipes pipes compute";
+  const MANAGED_CH = "Managed ClickHouse";
   /* one resource: [address, after, references by attribute] */
   const chPlan = (items) => ({
     format_version: "1.2",
@@ -846,7 +848,7 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
 
   test("a single service gets no warehouse box", () => {
     const w = where([["clickhouse_service.a", svc("a")]]);
-    eq(w["clickhouse_service.a"], LOC);
+    eq(w["clickhouse_service.a"], MANAGED_CH);
   });
 
   test("a secondary that references its primary shares a warehouse box named after the primary", () => {
@@ -873,8 +875,8 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
       ["clickhouse_service.a", svc("a", { warehouse_id: "wh-1" })],
       ["clickhouse_service.b", svc("b", { warehouse_id: "wh-2" })]
     ]);
-    eq(w["clickhouse_service.a"], LOC);
-    eq(w["clickhouse_service.b"], LOC);
+    eq(w["clickhouse_service.a"], MANAGED_CH);
+    eq(w["clickhouse_service.b"], MANAGED_CH);
   });
 
   test("a reference and an equal warehouse_id join three services into one warehouse", () => {
@@ -897,7 +899,7 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
     eq(w["clickhouse_service.b2"], "Warehouse b shared data");
   });
 
-  test("ClickPipes, CDC infrastructure and reverse endpoints sit outside the service, in its location box", () => {
+  test("ClickPipes, CDC infrastructure and reverse endpoints sit outside the service, in a ClickPipes box", () => {
     const w = where([
       ["clickhouse_service.a", svc("a")],
       ["clickhouse_clickpipe.s3", { name: "s3" }, onService("a")],
@@ -908,7 +910,23 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
     ]);
     for (const a of ["clickhouse_clickpipe.s3", "clickhouse_clickpipe_cdc_infrastructure.this",
                      "clickhouse_clickpipes_reverse_private_endpoint.db",
-                     "clickhouse_clickpipes_reverse_private_endpoint_custom_private_dns.db"]) eq(w[a], LOC, a);
+                     "clickhouse_clickpipes_reverse_private_endpoint_custom_private_dns.db"]) eq(w[a], PIPES, a);
+  });
+
+  test("Postgres services sit in a Managed Postgres box; ClickPipes and Postgres boxes each start a row", () => {
+    const items = [
+      ["clickhouse_service.a", svc("a")],
+      ["clickhouse_clickpipe.pg", { name: "pg" }, onService("a")],
+      ["clickhouse_postgres_service.db", { cloud_provider: "aws", region: "us-east-1" }]
+    ];
+    eq(where(items)["clickhouse_postgres_service.db"], "Managed Postgres");
+    const m = parsePlan(chPlan(items), "t");
+    const box = {};
+    (function walk(g) {
+      if (g.box) { box[g.label] = g; g.children.forEach(walk); }
+    })(buildTree(m, OPTS));
+    eq(box["Managed Postgres"].breakBefore, true);
+    eq(box["ClickPipes"].breakBefore, true);
   });
 
   test("service settings stay inside the service box", () => {
@@ -927,7 +945,7 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
       ["clickhouse_service.r", svc("r", { readonly: true }), joins("w")],
       ["clickhouse_clickpipe.s3", { name: "s3" }, onService("w")]
     ]), "t");
-    eq(placements(m)["clickhouse_clickpipe.s3"], LOC);
+    eq(placements(m)["clickhouse_clickpipe.s3"], PIPES);
     /* an edge to an enclosing box is dropped as redundant; this one is not enclosing */
     eq(m.anc["clickhouse_clickpipe.s3"].includes("clickhouse_service.w"), false);
   });
@@ -961,6 +979,13 @@ describe("providers: clickhouse placement (warehouses, ClickPipes)", () => {
        rows(["replicas", "2\u20134 (horizontal autoscaling)"], ["per replica", "16 GiB \u00b7 4 vCPU"], ["total", "32\u201364 GiB \u00b7 8\u201316 vCPU"]));
     eq(summary({ num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 32 }),
        rows(["replicas", "2"], ["per replica", "8\u201332 GiB \u00b7 2\u20138 vCPU"], ["total", "16\u201364 GiB \u00b7 4\u201316 vCPU"]));
+  });
+
+  test("a long service name shrinks with an ellipsis instead of widening the box; the header text stays whole", () => {
+    const g = boxFor([["clickhouse_service.a", svc("a-very-long-service-name-for-reporting", { num_replicas: 2, min_replica_memory_gb: 8, max_replica_memory_gb: 8, readonly: true })]],
+                     "clickhouse_service.a");
+    const metaW = g.meta.length * 6.2 + 8, PAD = 14;
+    eq(g.w, Math.ceil(140 + metaW + 30) + 2 * PAD);   /* MIN_LABEL_W + meta + header padding */
   });
 
   test("an unknown replica count gives no total; an unknown or high-memory profile changes vCPU", () => {
@@ -1899,6 +1924,7 @@ describe("links: the page address can ask for a view", () => {
     eq(P("?sample=webapp").sampleId, "embedded-plan-fullstack");
     eq(P("?sample=single").sampleId, "embedded-plan");
     eq(P("?sample=eks").sampleId, "embedded-plan-eks");
+    eq(P("?sample=clickhouse").sampleId, "embedded-plan-clickhouse");
     eq(P("?sample=WebApp").sampleId, "embedded-plan-fullstack");
     eq(P("?sample=embedded-plan-eks").sampleId, "embedded-plan-eks");
   });

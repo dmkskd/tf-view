@@ -105,8 +105,8 @@
             . google_compute_instance.vm  @418,130 178x66
         . google_storage_bucket.b  @390,234 178x66
   anc={"aws_vpc.main":[],"aws_subnet.a":["aws_vpc.main"],"aws_instance.web":["aws_vpc.main","aws_subnet.a"],"google_compute_network.net":[],"google_compute_subnetwork.sub":["google_compute_network.net"],"google_compute_instance.vm":["google_compute_network.net","google_compute_subnetwork.sub"],"google_storage_bucket.b":[]}
-### clickhouse mode=all assoc=false -> 2094x770
-  [clouds]    @0,0 2094x770
+### clickhouse mode=all assoc=false -> 2083x806
+  [clouds]    @0,0 2083x806
     [cloud] AWS Cloud   @14,26 1042x730
       [region] Region us-east-2  @28,52 1014x574
         [vpc] VPC main 10.20.0.0/16  @42,78 986x458
@@ -133,29 +133,31 @@
         . aws_sqs_queue.events  @606,546 178x66
       [loose] Global account-level  @28,636 206x106
         . aws_iam_role.clickpipes  @42,662 178x66
-    [cloud] ClickHouse Cloud   @1066,26 1014x610
-      [region] Region per service  @1080,52 986x378
-        [az location] AWS us-east-2   @1094,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 891x222
-            [cluster service] Service analytics 3 × 16–120 GiB  @1122,130 394x106
-              . clickhouse_service_private_endpoints_attachment.analytics  @1136,156 178x66
-              . clickhouse_service_upgrade_window.analytics  @1324,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1526,130 459x182
-              . clickhouse_query_api_endpoint.daily_events  @1540,156 178x66
-              . clickhouse_saved_query.top_event_types  @1728,156 178x66
-              . clickhouse_service_scheduled_scaling.reporting  @1540,232 178x66
-          . clickhouse_clickpipe.kinesis_clicks  @1108,336 178x66
-          . clickhouse_clickpipe.orders_cdc  @1296,336 178x66
-          . clickhouse_clickpipe.s3_events  @1484,336 178x66
-          . clickhouse_clickpipe_cdc_infrastructure.this  @1672,336 178x66
-          . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @1860,336 178x66
-      [loose] Global organization  @1080,440 394x182
-        . clickhouse_api_key.dashboards  @1094,466 178x66
-        . clickhouse_organization_settings.this  @1282,466 178x66
-        . clickhouse_role.analyst  @1094,542 178x66
+    [cloud] ClickHouse Cloud   @1066,26 1003x766
+      [region] Region per service  @1080,52 975x534
+        [az location] AWS us-east-2   @1094,78 947x494
+          [vpc-wide clickhouse] Managed ClickHouse   @1108,104 919x262
+            [vpc-wide warehouse] Warehouse analytics shared data  @1122,130 891x222
+              [cluster service] Service analytics 3 × 16–120 GiB  @1136,156 394x106
+                . clickhouse_service_private_endpoints_attachment.analytics  @1150,182 178x66
+                . clickhouse_service_upgrade_window.analytics  @1338,182 178x66
+              [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1540,156 459x182
+                . clickhouse_query_api_endpoint.daily_events  @1554,182 178x66
+                . clickhouse_saved_query.top_event_types  @1742,182 178x66
+                . clickhouse_service_scheduled_scaling.reporting  @1554,258 178x66
+          [vpc-wide clickpipes] ClickPipes pipes compute  @1108,376 582x182
+            . clickhouse_clickpipe.kinesis_clicks  @1122,402 178x66
+            . clickhouse_clickpipe.orders_cdc  @1310,402 178x66
+            . clickhouse_clickpipe.s3_events  @1498,402 178x66
+            . clickhouse_clickpipe_cdc_infrastructure.this  @1122,478 178x66
+            . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @1310,478 178x66
+      [loose] Global organization  @1080,596 394x182
+        . clickhouse_api_key.dashboards  @1094,622 178x66
+        . clickhouse_organization_settings.this  @1282,622 178x66
+        . clickhouse_role.analyst  @1094,698 178x66
   anc={"aws_vpc.main":[],"aws_subnet.private[0]":["aws_vpc.main"],"aws_security_group.app":["aws_vpc.main","aws_subnet.private[0]"],"aws_instance.app":["aws_vpc.main","aws_subnet.private[0]","aws_security_group.app"],"aws_subnet.private[1]":["aws_vpc.main"],"aws_security_group.clickhouse_endpoint":["aws_vpc.main"],"aws_route53_record.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_vpc_endpoint.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_security_group.orders_db":["aws_vpc.main"],"aws_db_instance.orders":["aws_vpc.main","aws_security_group.orders_db"],"aws_db_subnet_group.orders":["aws_vpc.main"],"aws_lb.orders_db":["aws_vpc.main"],"aws_lb_target_group.orders_db":["aws_vpc.main"],"aws_route53_zone.clickhouse":["aws_vpc.main"],"aws_vpc_endpoint_service.orders_db":["aws_vpc.main"],"aws_db_parameter_group.orders":[],"aws_kinesis_stream.clicks":[],"aws_s3_bucket.events":[],"aws_sqs_queue.events":[],"aws_iam_role.clickpipes":[],"clickhouse_service.analytics":[],"clickhouse_service_private_endpoints_attachment.analytics":["clickhouse_service.analytics"],"clickhouse_service_upgrade_window.analytics":["clickhouse_service.analytics"],"clickhouse_service.reporting":[],"clickhouse_query_api_endpoint.daily_events":["clickhouse_service.reporting"],"clickhouse_saved_query.top_event_types":["clickhouse_service.reporting"],"clickhouse_service_scheduled_scaling.reporting":["clickhouse_service.reporting"],"clickhouse_clickpipe.kinesis_clicks":[],"clickhouse_clickpipe.orders_cdc":[],"clickhouse_clickpipe.s3_events":[],"clickhouse_clickpipe_cdc_infrastructure.this":[],"clickhouse_clickpipes_reverse_private_endpoint.orders_db":[],"clickhouse_api_key.dashboards":[],"clickhouse_organization_settings.this":[],"clickhouse_role.analyst":[]}
-### clickhouse mode=all assoc=true -> 2846x886
-  [clouds]    @0,0 2846x886
+### clickhouse mode=all assoc=true -> 2835x886
+  [clouds]    @0,0 2835x886
     [cloud] AWS Cloud   @14,26 1794x846
       [region] Region us-east-2  @28,52 1766x574
         [vpc] VPC main 10.20.0.0/16  @42,78 1738x458
@@ -191,30 +193,32 @@
         . aws_iam_role_policy.clickpipes  @230,662 178x66
       [loose] Unplaced no vpc or subnet reference  @28,752 287x106
         . aws_vpc_endpoint_service_allowed_principal.clickpipes  @42,778 178x66
-    [cloud] ClickHouse Cloud   @1818,26 1014x610
-      [region] Region per service  @1832,52 986x378
-        [az location] AWS us-east-2   @1846,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1860,104 891x222
-            [cluster service] Service analytics 3 × 16–120 GiB  @1874,130 394x106
-              . clickhouse_service_private_endpoints_attachment.analytics  @1888,156 178x66
-              . clickhouse_service_upgrade_window.analytics  @2076,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @2278,130 459x182
-              . clickhouse_query_api_endpoint.daily_events  @2292,156 178x66
-              . clickhouse_saved_query.top_event_types  @2480,156 178x66
-              . clickhouse_service_scheduled_scaling.reporting  @2292,232 178x66
-          . clickhouse_clickpipe.kinesis_clicks  @1860,336 178x66
-          . clickhouse_clickpipe.orders_cdc  @2048,336 178x66
-          . clickhouse_clickpipe.s3_events  @2236,336 178x66
-          . clickhouse_clickpipe_cdc_infrastructure.this  @2424,336 178x66
-          . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @2612,336 178x66
-      [loose] Global organization  @1832,440 394x182
-        . clickhouse_api_key.dashboards  @1846,466 178x66
-        . clickhouse_organization_settings.this  @2034,466 178x66
-        . clickhouse_role.analyst  @1846,542 178x66
-        . clickhouse_role_assignment.dashboards  @2034,542 178x66
+    [cloud] ClickHouse Cloud   @1818,26 1003x766
+      [region] Region per service  @1832,52 975x534
+        [az location] AWS us-east-2   @1846,78 947x494
+          [vpc-wide clickhouse] Managed ClickHouse   @1860,104 919x262
+            [vpc-wide warehouse] Warehouse analytics shared data  @1874,130 891x222
+              [cluster service] Service analytics 3 × 16–120 GiB  @1888,156 394x106
+                . clickhouse_service_private_endpoints_attachment.analytics  @1902,182 178x66
+                . clickhouse_service_upgrade_window.analytics  @2090,182 178x66
+              [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @2292,156 459x182
+                . clickhouse_query_api_endpoint.daily_events  @2306,182 178x66
+                . clickhouse_saved_query.top_event_types  @2494,182 178x66
+                . clickhouse_service_scheduled_scaling.reporting  @2306,258 178x66
+          [vpc-wide clickpipes] ClickPipes pipes compute  @1860,376 582x182
+            . clickhouse_clickpipe.kinesis_clicks  @1874,402 178x66
+            . clickhouse_clickpipe.orders_cdc  @2062,402 178x66
+            . clickhouse_clickpipe.s3_events  @2250,402 178x66
+            . clickhouse_clickpipe_cdc_infrastructure.this  @1874,478 178x66
+            . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @2062,478 178x66
+      [loose] Global organization  @1832,596 394x182
+        . clickhouse_api_key.dashboards  @1846,622 178x66
+        . clickhouse_organization_settings.this  @2034,622 178x66
+        . clickhouse_role.analyst  @1846,698 178x66
+        . clickhouse_role_assignment.dashboards  @2034,698 178x66
   anc={"aws_vpc.main":[],"aws_subnet.private[0]":["aws_vpc.main"],"aws_security_group.app":["aws_vpc.main","aws_subnet.private[0]"],"aws_instance.app":["aws_vpc.main","aws_subnet.private[0]","aws_security_group.app"],"aws_subnet.private[1]":["aws_vpc.main"],"aws_security_group.clickhouse_endpoint":["aws_vpc.main"],"aws_route53_record.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_vpc_endpoint.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_security_group.orders_db":["aws_vpc.main"],"aws_db_instance.orders":["aws_vpc.main","aws_security_group.orders_db"],"aws_db_subnet_group.orders":["aws_vpc.main"],"aws_lb.orders_db":["aws_vpc.main"],"aws_lb_listener.orders_db":["aws_vpc.main"],"aws_lb_target_group.orders_db":["aws_vpc.main"],"aws_route53_zone.clickhouse":["aws_vpc.main"],"aws_vpc_endpoint_service.orders_db":["aws_vpc.main"],"aws_vpc_security_group_ingress_rule.clickhouse_https":["aws_vpc.main"],"aws_vpc_security_group_ingress_rule.clickhouse_native":["aws_vpc.main"],"aws_vpc_security_group_ingress_rule.orders_db_from_vpc":["aws_vpc.main"],"aws_db_parameter_group.orders":[],"aws_kinesis_stream.clicks":[],"aws_s3_bucket.events":[],"aws_s3_bucket_notification.events":[],"aws_sqs_queue.events":[],"aws_sqs_queue_policy.events":[],"aws_iam_role.clickpipes":[],"aws_iam_role_policy.clickpipes":[],"aws_vpc_endpoint_service_allowed_principal.clickpipes":[],"clickhouse_service.analytics":[],"clickhouse_service_private_endpoints_attachment.analytics":["clickhouse_service.analytics"],"clickhouse_service_upgrade_window.analytics":["clickhouse_service.analytics"],"clickhouse_service.reporting":[],"clickhouse_query_api_endpoint.daily_events":["clickhouse_service.reporting"],"clickhouse_saved_query.top_event_types":["clickhouse_service.reporting"],"clickhouse_service_scheduled_scaling.reporting":["clickhouse_service.reporting"],"clickhouse_clickpipe.kinesis_clicks":[],"clickhouse_clickpipe.orders_cdc":[],"clickhouse_clickpipe.s3_events":[],"clickhouse_clickpipe_cdc_infrastructure.this":[],"clickhouse_clickpipes_reverse_private_endpoint.orders_db":[],"clickhouse_api_key.dashboards":[],"clickhouse_organization_settings.this":[],"clickhouse_role.analyst":[],"clickhouse_role_assignment.dashboards":[]}
-### clickhouse mode=changes assoc=false -> 2094x770
-  [clouds]    @0,0 2094x770
+### clickhouse mode=changes assoc=false -> 2083x806
+  [clouds]    @0,0 2083x806
     [cloud] AWS Cloud   @14,26 1042x730
       [region] Region us-east-2  @28,52 1014x574
         [vpc] VPC main 10.20.0.0/16  @42,78 986x458
@@ -241,24 +245,26 @@
         . aws_sqs_queue.events  @606,546 178x66
       [loose] Global account-level  @28,636 206x106
         . aws_iam_role.clickpipes  @42,662 178x66
-    [cloud] ClickHouse Cloud   @1066,26 1014x610
-      [region] Region per service  @1080,52 986x378
-        [az location] AWS us-east-2   @1094,78 958x338
-          [vpc-wide warehouse] Warehouse analytics shared data  @1108,104 891x222
-            [cluster service] Service analytics 3 × 16–120 GiB  @1122,130 394x106
-              . clickhouse_service_private_endpoints_attachment.analytics  @1136,156 178x66
-              . clickhouse_service_upgrade_window.analytics  @1324,156 178x66
-            [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1526,130 459x182
-              . clickhouse_query_api_endpoint.daily_events  @1540,156 178x66
-              . clickhouse_saved_query.top_event_types  @1728,156 178x66
-              . clickhouse_service_scheduled_scaling.reporting  @1540,232 178x66
-          . clickhouse_clickpipe.kinesis_clicks  @1108,336 178x66
-          . clickhouse_clickpipe.orders_cdc  @1296,336 178x66
-          . clickhouse_clickpipe.s3_events  @1484,336 178x66
-          . clickhouse_clickpipe_cdc_infrastructure.this  @1672,336 178x66
-          . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @1860,336 178x66
-      [loose] Global organization  @1080,440 394x182
-        . clickhouse_api_key.dashboards  @1094,466 178x66
-        . clickhouse_organization_settings.this  @1282,466 178x66
-        . clickhouse_role.analyst  @1094,542 178x66
+    [cloud] ClickHouse Cloud   @1066,26 1003x766
+      [region] Region per service  @1080,52 975x534
+        [az location] AWS us-east-2   @1094,78 947x494
+          [vpc-wide clickhouse] Managed ClickHouse   @1108,104 919x262
+            [vpc-wide warehouse] Warehouse analytics shared data  @1122,130 891x222
+              [cluster service] Service analytics 3 × 16–120 GiB  @1136,156 394x106
+                . clickhouse_service_private_endpoints_attachment.analytics  @1150,182 178x66
+                . clickhouse_service_upgrade_window.analytics  @1338,182 178x66
+              [cluster service] Service reporting 2 × 8–32 GiB · read-only · auto-idle 15 min  @1540,156 459x182
+                . clickhouse_query_api_endpoint.daily_events  @1554,182 178x66
+                . clickhouse_saved_query.top_event_types  @1742,182 178x66
+                . clickhouse_service_scheduled_scaling.reporting  @1554,258 178x66
+          [vpc-wide clickpipes] ClickPipes pipes compute  @1108,376 582x182
+            . clickhouse_clickpipe.kinesis_clicks  @1122,402 178x66
+            . clickhouse_clickpipe.orders_cdc  @1310,402 178x66
+            . clickhouse_clickpipe.s3_events  @1498,402 178x66
+            . clickhouse_clickpipe_cdc_infrastructure.this  @1122,478 178x66
+            . clickhouse_clickpipes_reverse_private_endpoint.orders_db  @1310,478 178x66
+      [loose] Global organization  @1080,596 394x182
+        . clickhouse_api_key.dashboards  @1094,622 178x66
+        . clickhouse_organization_settings.this  @1282,622 178x66
+        . clickhouse_role.analyst  @1094,698 178x66
   anc={"aws_vpc.main":[],"aws_subnet.private[0]":["aws_vpc.main"],"aws_security_group.app":["aws_vpc.main","aws_subnet.private[0]"],"aws_instance.app":["aws_vpc.main","aws_subnet.private[0]","aws_security_group.app"],"aws_subnet.private[1]":["aws_vpc.main"],"aws_security_group.clickhouse_endpoint":["aws_vpc.main"],"aws_route53_record.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_vpc_endpoint.clickhouse":["aws_vpc.main","aws_security_group.clickhouse_endpoint"],"aws_security_group.orders_db":["aws_vpc.main"],"aws_db_instance.orders":["aws_vpc.main","aws_security_group.orders_db"],"aws_db_subnet_group.orders":["aws_vpc.main"],"aws_lb.orders_db":["aws_vpc.main"],"aws_lb_target_group.orders_db":["aws_vpc.main"],"aws_route53_zone.clickhouse":["aws_vpc.main"],"aws_vpc_endpoint_service.orders_db":["aws_vpc.main"],"aws_db_parameter_group.orders":[],"aws_kinesis_stream.clicks":[],"aws_s3_bucket.events":[],"aws_sqs_queue.events":[],"aws_iam_role.clickpipes":[],"clickhouse_service.analytics":[],"clickhouse_service_private_endpoints_attachment.analytics":["clickhouse_service.analytics"],"clickhouse_service_upgrade_window.analytics":["clickhouse_service.analytics"],"clickhouse_service.reporting":[],"clickhouse_query_api_endpoint.daily_events":["clickhouse_service.reporting"],"clickhouse_saved_query.top_event_types":["clickhouse_service.reporting"],"clickhouse_service_scheduled_scaling.reporting":["clickhouse_service.reporting"],"clickhouse_clickpipe.kinesis_clicks":[],"clickhouse_clickpipe.orders_cdc":[],"clickhouse_clickpipe.s3_events":[],"clickhouse_clickpipe_cdc_infrastructure.this":[],"clickhouse_clickpipes_reverse_private_endpoint.orders_db":[],"clickhouse_api_key.dashboards":[],"clickhouse_organization_settings.this":[],"clickhouse_role.analyst":[]}

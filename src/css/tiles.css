@@ -26,7 +26,7 @@
   .grp[data-addr] > .grp-hd:hover{text-decoration:underline; text-underline-offset:3px;}
   .grp.sel{box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);}
 
-  .grp > .grp-hd em{font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+  .grp > .grp-hd em{flex:none; font-style:normal; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
     font-weight:400; letter-spacing:0; text-transform:none; color:var(--muted);}
   .grp > .grp-hd svg{width:13px; height:13px;}
   .grp > .grp-hd svg.tile{width:14px; height:14px; border-radius:3px;}

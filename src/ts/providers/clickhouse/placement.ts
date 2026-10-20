@@ -2,12 +2,15 @@
 //
 // Region box
 //   one box per cloud and region a service runs in ("AWS us-east-2")
-//     a warehouse box, when two or more services share data
-//       one box per service, holding the settings that reference it
-//       (private endpoints, schedules, queries)
-//     ClickPipes, their CDC infrastructure and reverse private endpoints,
-//     next to the warehouse: they run on ClickPipes compute, not on the
+//     a Managed ClickHouse box
+//       a warehouse box, when two or more services share data
+//         one box per service, holding the settings that reference it
+//         (private endpoints, schedules, queries)
+//     a ClickPipes box on the next row: the pipes, their CDC infrastructure and
+//     reverse private endpoints run on ClickPipes compute, not on the
 //     service's replicas, and the reference to the service draws the line
+//     a Managed Postgres box on a row of its own, holding the Postgres
+//     services (a CDC ClickPipe reading one draws the line)
 //
 // Organization resources (API keys, roles, settings) have catalog scope
 // "global" and go to the Global box.
@@ -109,12 +112,34 @@ function startClickHousePlacement(api: PlacementApi): PlacementSession {
     return regionBox[key] || (regionBox[key] = api.addContainer(api.region, {cls: "az location", label: key, maxW: 1400}));
   }
 
+  /* One Managed ClickHouse, one ClickPipes and one Managed Postgres box per
+     region, one per row, so each product reads as its own group. */
+  var clickhouseBox: Record<string, ContainerRef> = {};
+  function clickhouseBoxFor(r: ProviderResource): ContainerRef {
+    var key = regionLabel(r);
+    return clickhouseBox[key] || (clickhouseBox[key] = api.addContainer(regionBoxFor(r),
+      {cls: "vpc-wide clickhouse", label: "Managed ClickHouse", maxW: 1350}));
+  }
+
+  var pipesBox: Record<string, ContainerRef> = {};
+  function pipesBoxFor(r: ProviderResource): ContainerRef {
+    var key = regionLabel(r);
+    return pipesBox[key] || (pipesBox[key] = api.addContainer(regionBoxFor(r),
+      {cls: "vpc-wide clickpipes", label: "ClickPipes", meta: "pipes compute", maxW: 900, breakBefore: true}));
+  }
+  var postgresBox: Record<string, ContainerRef> = {};
+  function postgresBoxFor(r: ProviderResource): ContainerRef {
+    var key = regionLabel(r);
+    return postgresBox[key] || (postgresBox[key] = api.addContainer(regionBoxFor(r),
+      {cls: "vpc-wide postgres", label: "Managed Postgres", maxW: 900, breakBefore: true}));
+  }
+
   var warehouseBox: Record<string, ContainerRef> = {};
   Object.keys(members).forEach(function(root: string){
     var group = members[root];
     if (group.length < 2) return;
     var r = services[primaryOfGroup(group)];
-    var box = api.addContainer(regionBoxFor(r), {cls: "vpc-wide warehouse",
+    var box = api.addContainer(clickhouseBoxFor(r), {cls: "vpc-wide warehouse",
       label: "Warehouse " + (asText(r.attrs.name) || r.name), meta: "shared data", maxW: 1300});
     group.forEach(function(a: string){ warehouseBox[a] = box; });
   });
@@ -123,7 +148,7 @@ function startClickHousePlacement(api: PlacementApi): PlacementSession {
   serviceAddrs.forEach(function(addr: string){
     var r = services[addr];
     var w = warehouseBox[addr];
-    serviceBox[addr] = api.addContainer(w || regionBoxFor(r), {cls: "cluster service",
+    serviceBox[addr] = api.addContainer(w || clickhouseBoxFor(r), {cls: "cluster service",
       label: "Service " + (asText(r.attrs.name) || r.name), meta: serviceMeta(r), maxW: 900,
       resource: addr, edges: true});
   });
@@ -151,14 +176,24 @@ function startClickHousePlacement(api: PlacementApi): PlacementSession {
     return null;
   }
 
+  /* made before containerOf is asked, so the order is fixed: services,
+     then ClickPipes, then Postgres */
+  api.resources.forEach(function(r: ProviderResource){
+    var o = owner(r);
+    if (o && o.pipes) pipesBoxFor(services[o.service]);
+  });
+  api.resources.forEach(function(r: ProviderResource){
+    if (r.type === "clickhouse_postgres_service") postgresBoxFor(r);
+  });
+
   return {
     containerOf: function(addr: string): ContainerRef | null {
       var r = byAddr[addr];
       if (!r) return null;
-      if (r.type === "clickhouse_postgres_service") return regionBoxFor(r);
+      if (r.type === "clickhouse_postgres_service") return postgresBoxFor(r);
       var o = owner(r);
       if (!o) return null;
-      return o.pipes ? regionBoxFor(services[o.service]) : serviceBox[o.service];
+      return o.pipes ? pipesBoxFor(services[o.service]) : serviceBox[o.service];
     }
   };
 }

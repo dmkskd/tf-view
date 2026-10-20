@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A showcase PR for the image settings: opens a demo PR (or continues an open one), pushes review changes
-# 1 (delete) and 2 (update in place), then posts the visual plan once per image setting, and releases the
+# (in the Floci demo 1, a delete, and 2, an update in place), then posts the visual plan once per image setting, and releases the
 # PR's Atlantis lock so the next demo PR can plan.
 # The showcase comments take the plan from the PR's newest report in reports/ (redacted by tfview) and run
 # atlantis/report.sh in the Atlantis container once per setting, with a terraform stand-in that prints that plan.
@@ -8,13 +8,17 @@
 # Each step waits for Atlantis to finish its plan, and waits for or reports a lock held by another PR.
 # Needs the stack running (just up).
 # Usage: showcase.sh [PR number]   (default: a new demo PR; a PR number continues that open PR, the newest one)
+# Another demo folder sets DEMO_DIR (its .env, reports/ and compose project), SHARED (its revisions.sh),
+# ATLANTIS_URL (its Atlantis) and SHOWCASE_CHANGES (the review changes to push, default "1 2").
 set -euo pipefail
-cd "$(dirname "$0")/.."
+SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+cd "${DEMO_DIR:-$SCRIPTS/..}"
 
 set -a; . ./.env; set +a
 export GH_TOKEN
 R=$GH_REPO
-ATLANTIS=http://127.0.0.1:4142
+ATLANTIS=${ATLANTIS_URL:-http://127.0.0.1:4142}
+CHANGES=${SHOWCASE_CHANGES:-1 2}
 
 # name|settings|title|what to look for (each showcase comment starts with its title, settings and this text)
 VARIANTS=(
@@ -86,20 +90,20 @@ if [ -n "${1:-}" ]; then
 else
   wait_unlocked ""
   echo "== open a new demo PR"; t=$(now)
-  scripts/demo.sh mr-create | tail -2
+  "$SCRIPTS/demo.sh" mr-create | tail -2
   NUM=$(newest_pr)
   wait_plan "$NUM" "$t"
 fi
 # shellcheck source=../../shared/revisions.sh
-. ../shared/revisions.sh   # change_def
-for n in 1 2; do
+. "${SHARED:-../shared}/revisions.sh"   # change_def
+for n in $CHANGES; do
   title=$(change_def mr-change-$n | cut -d'|' -f1)
   # demo.sh writes "mr-change-N: <title>" as the commit's first line
   if gh api "repos/$R/pulls/$NUM/commits" --jq '.[].commit.message | split("\n")[0]' | grep -qxF "mr-change-$n: $title"; then
     echo "== review change $n is on #$NUM already"; continue
   fi
   echo "== review change $n on #$NUM"; t=$(now)
-  scripts/demo.sh mr-change-$n | tail -1
+  "$SCRIPTS/demo.sh" mr-change-$n | tail -1
   wait_plan "$NUM" "$t"
 done
 # the plan of the PR's last commit (it may still run when the script continues a stopped run)

@@ -432,7 +432,8 @@ if (renderIsoBtn) renderIsoBtn.addEventListener("click", function(){ setRender("
 var SAMPLE_LABELS: Record<string, string> = {
   "embedded-plan": "bundled sample",
   "embedded-plan-fullstack": "aws full-stack sample",
-  "embedded-plan-eks": "eks (llm review) sample"
+  "embedded-plan-eks": "eks (llm review) sample",
+  "embedded-plan-clickhouse": "aws + clickhouse cloud (llm review) sample"
 };
 var DEFAULT_SAMPLE_ID = "embedded-plan";
 /* Display text for the dropdown menu — separate from SAMPLE_LABELS, which
@@ -440,7 +441,8 @@ var DEFAULT_SAMPLE_ID = "embedded-plan";
 var SAMPLE_MENU_ITEMS: [string, string][] = [
   ["embedded-plan", "Single EC2"],
   ["embedded-plan-fullstack", "Web app (ALB+RDS)"],
-  ["embedded-plan-eks", "EKS Cluster (LLM)"]
+  ["embedded-plan-eks", "EKS Cluster (LLM)"],
+  ["embedded-plan-clickhouse", "AWS + ClickHouse Cloud (LLM)"]
 ];
 
 function sampleText(id: string): string {

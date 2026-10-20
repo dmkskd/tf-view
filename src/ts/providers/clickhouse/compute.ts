@@ -52,3 +52,14 @@ export function serviceCompute(r: ProviderResource): Compute {
 export function total(count: Range, each: Range): Range {
   return [count[0] * each[0], count[1] * each[1]];
 }
+
+/* ha_type as standbys: "none" has none, "async" one asynchronous standby,
+   "sync" two synchronous ones (ClickHouse Managed Postgres docs, "High
+   availability"). Empty when the plan does not say. */
+export function pgStandbys(r: ProviderResource): string {
+  var ha = asText(r.attrs.ha_type);
+  if (ha === "none") return "no standby";
+  if (ha === "async") return "1 async standby";
+  if (ha === "sync") return "2 sync standbys";
+  return ha;
+}

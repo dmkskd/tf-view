@@ -56,20 +56,62 @@ down:
     {{scripts}}/webhook.sh off || true
     docker compose down
 
-# Open the PR: a read-only reporting service on the warehouse, reached over the same VPC endpoint
+# Open the PR: the writer idles after 15 minutes instead of 5 (update; one service, no warehouse box yet)
 mr-create: need-env
     {{scripts}}/demo.sh mr-create
 
-# Review change 1: scale the writer from 3 to 2 replicas (in place)
+# Change 1: a read-only reporting service on the warehouse (creates; the warehouse box appears)
 mr-change-1: need-env
     {{scripts}}/demo.sh mr-change-1
 
-# The whole PR: open it, wait SECONDS for Atlantis to plan, then push change 1
-demo seconds="60":
-    just mr-create
-    @echo "waiting {{seconds}}s for Atlantis to plan..."
-    sleep {{seconds}}
-    just mr-change-1
+# Change 2: scale the writer from 3 to 2 replicas (update)
+mr-change-2: need-env
+    {{scripts}}/demo.sh mr-change-2
+
+# Change 3: EC2 client from t4g.micro to t4g.small (update)
+mr-change-3: need-env
+    {{scripts}}/demo.sh mr-change-3
+
+# Change 4: the events ClickPipe sorts its table by ts only (replace)
+mr-change-4: need-env
+    {{scripts}}/demo.sh mr-change-4
+
+# Change 5: remove the seed file (delete)
+mr-change-5: need-env
+    {{scripts}}/demo.sh mr-change-5
+
+# The whole PR: open it, then changes 1 to 5, each pushed once Atlantis has posted the plan of the previous one
+demo: need-env
+    #!/usr/bin/env bash
+    set -euo pipefail
+    now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+    # waits for Atlantis's plan comment on PR $1 posted after $2 (up to 15 min); a plan refused because
+    # another plan still holds the PR is asked for again
+    wait_plan() {
+      for _ in $(seq 1 90); do
+        b=$(gh api "repos/${GH_REPO}/issues/$1/comments?since=$2" --jq '.[].body' 2>/dev/null || true)
+        if grep -q 'is currently locked' <<<"$b"; then
+          sleep 20; gh pr comment "$1" -R "${GH_REPO}" --body "atlantis plan" >/dev/null; set -- "$1" "$(now)"
+          echo "  plan refused (another plan was running); asked again"; continue
+        fi
+        if grep -q '^Ran Plan' <<<"$b"; then echo "  Atlantis planned #$1"; return 0; fi
+        sleep 10
+      done
+      echo "no plan from Atlantis on #$1 after 15 min (a dropped relay event? comment 'atlantis plan' on the PR)"; return 1
+    }
+    t=$(now); just mr-create
+    pr=$(gh api "repos/${GH_REPO}/pulls?state=open&sort=created&direction=desc&per_page=30" \
+           --jq '[.[] | select(.head.ref | startswith("demo-"))][0].number')
+    wait_plan "$pr" "$t"
+    for n in 1 2 3 4 5; do
+      t=$(now); just mr-change-$n
+      wait_plan "$pr" "$t"
+    done
+    echo "Done: https://github.com/${GH_REPO}/pull/$pr"
+
+# A showcase PR: a new demo PR (or the open one, `pr`) with all five changes, then the plan once per image setting (PNG, SVG tour, sections, replay, still, no HTML)
+showcase pr="": need-env
+    ATLANTIS_URL=http://127.0.0.1:4143 SHOWCASE_CHANGES="1 2 3 4 5" {{scripts}}/showcase.sh {{trim_start_match(pr, "pr=")}}
 
 # Show the open PR and its commits
 status: need-env

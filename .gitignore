@@ -11,6 +11,8 @@ cli/target/
 
 # Local Terraform plans & states (prevent leaking sensitive infra plans)
 plan.json
+plan-reviewed.json
+review.html
 plan.out
 tfplan*
 *.tfplan

@@ -59,11 +59,13 @@ const kindsData = fs.readFileSync(path.join(SRC_DIR, "data", "collection-kinds.j
 const planData = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan.json"), "utf8").trim();
 const planDataFullstack = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-fullstack.json"), "utf8").trim();
 const planDataEks = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-eks.json"), "utf8").trim();
+const planDataClickhouse = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-clickhouse.json"), "utf8").trim();
 
 const minKinds = JSON.stringify(JSON.parse(kindsData));
 const minPlan = JSON.stringify(JSON.parse(planData));
 const minPlanFullstack = JSON.stringify(JSON.parse(planDataFullstack));
 const minPlanEks = JSON.stringify(JSON.parse(planDataEks));
+const minPlanClickhouse = JSON.stringify(JSON.parse(planDataClickhouse));
 
 // 3. Bundle the TypeScript with esbuild, starting from main.ts. esbuild places
 // all modules in one function scope and renames names that clash. A module
@@ -147,6 +149,7 @@ ${bodyMarkup}
 <script type="application/json" id="embedded-plan">${minPlan}</script>
 <script type="application/json" id="embedded-plan-fullstack">${minPlanFullstack}</script>
 <script type="application/json" id="embedded-plan-eks">${minPlanEks}</script>
+<script type="application/json" id="embedded-plan-clickhouse">${minPlanClickhouse}</script>
 </body>
 </html>
 `;

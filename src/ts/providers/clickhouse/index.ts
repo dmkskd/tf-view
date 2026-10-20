@@ -9,13 +9,13 @@ import {
   JsonValue, IconDefinition, asText, valueAt
 } from "../../sdk/index.js";
 import { startClickHousePlacement } from "./placement.js";
-import { serviceCompute, rangeText, total } from "./compute.js";
+import { serviceCompute, rangeText, total, pgStandbys } from "./compute.js";
 
 export var CH_REG: Record<string, CatalogEntry> = {
   clickhouse_service:                              {kind:"group", label:"ClickHouse Service",  icon:"database",     cat:"db",
                                                      preview:["cloud_provider","region","idle_scaling","idle_timeout_minutes"]},
-  clickhouse_postgres_service:                     {kind:"node",  label:"Postgres Service",    icon:"database",     cat:"db",
-                                                     preview:["cloud_provider","region"]},
+  clickhouse_postgres_service:                     {kind:"node",  label:"Postgres Service",    icon:"database",     cat:"db", sub:"size",
+                                                     preview:["cloud_provider","region","hostname"]},
   clickhouse_service_private_endpoints_attachment: {kind:"node",  label:"Private Endpoints",   icon:"i-vpce",   cat:"net",
                                                      preview:["private_endpoint_ids"]},
   clickhouse_private_endpoint_registration:        {kind:"node",  label:"Endpoint Registration", icon:"i-vpce", cat:"net", sub:"cloud_provider",
@@ -26,7 +26,7 @@ export var CH_REG: Record<string, CatalogEntry> = {
                                                    {kind:"node",  label:"Reverse Endpoint DNS", icon:"i-r53",   cat:"net"},
   clickhouse_clickpipe:                            {kind:"node",  label:"ClickPipe",           icon:"pipe",     cat:"integ", sub:"source",
                                                      preview:["name","stopped"]},
-  clickhouse_clickpipe_cdc_infrastructure:         {kind:"node",  label:"CDC Infrastructure",  icon:"pipe",     cat:"integ",
+  clickhouse_clickpipe_cdc_infrastructure:         {kind:"node",  label:"CDC Infrastructure",  icon:"chip",     cat:"integ", sub:"replica_memory_gb",
                                                      preview:["replica_cpu_millicores","replica_memory_gb"]},
   clickhouse_clickpipes_ssh_key:                   {kind:"node",  label:"ClickPipes SSH Key",  icon:"i-kms",    cat:"sec"},
   clickhouse_service_upgrade_window:               {kind:"node",  label:"Upgrade Window",      icon:"clock",    cat:"mgmt",
@@ -59,6 +59,10 @@ var ICONS: Record<string, IconDefinition> = {
                       "M13 26.5 A11 4 0 0 0 35 26.5 V33 A11 4 0 0 1 13 33 Z"] },
   /* an arrow: data moving into the service */
   pipe:  { paths: ["M8 20 H27 V12 L40 24 L27 36 V28 H8 Z"] },
+  /* a chip: compute (the CDC workers that run a service's DB ClickPipes) */
+  chip:  { paths: ["M14 14 H34 V34 H14 Z M18 18 V30 H30 V18 Z",
+                   "M18 8 H21 V14 H18 Z M27 8 H30 V14 H27 Z M18 34 H21 V40 H18 Z M27 34 H30 V40 H27 Z",
+                   "M8 18 H14 V21 H8 Z M8 27 H14 V30 H8 Z M34 18 H40 V21 H34 Z M34 27 H40 V30 H34 Z"] },
   /* a clock face with hands */
   clock: { paths: ["M24 8 A16 16 0 1 1 23.99 8 Z M24 12 A12 12 0 1 0 24.01 12 Z",
                    "M22.5 14 H25.5 V22.5 H32 V25.5 H22.5 Z"] },
@@ -78,6 +82,26 @@ function pipeSource(r: ProviderResource): string {
   return kind === "object_storage" && type ? type : kind.replace(/_/g, " ");
 }
 
+/* "1 vCPU · 4 GiB": the size of each CDC worker replica */
+function cdcSize(r: ProviderResource): string {
+  var cpu = r.attrs.replica_cpu_millicores, mem = r.attrs.replica_memory_gb;
+  var out: string[] = [];
+  if (typeof cpu === "number") out.push(cpu / 1000 + " vCPU");
+  if (typeof mem === "number") out.push(mem + " GiB");
+  return out.join(" \u00b7 ");
+}
+
+/* "m6gd.large · PG 18 · HA": size, major version, and HA when it has standbys */
+function pgTile(r: ProviderResource): string {
+  var out: string[] = [];
+  var size = asText(r.attrs.size), version = asText(r.attrs.postgres_version), ha = asText(r.attrs.ha_type);
+  if (size) out.push(size);
+  if (version) out.push("PG " + version);
+  if (asText(r.attrs.read_replica_of)) out.push("replica");
+  else if (ha && ha !== "none") out.push("HA " + ha);
+  return out.join(" \u00b7 ");
+}
+
 /* ip_access: the addresses allowed to connect to a service's public endpoint,
    or to use an API key. Everything else is refused. */
 var IP_ACCESS: RuleListSpec = {
@@ -91,6 +115,7 @@ var IP_ACCESS: RuleListSpec = {
 /* A service's compute: replicas, memory and vCPU per replica, and the total
    across replicas. */
 function chSummary(r: ProviderResource): SummaryRow[] {
+  if (r.type === "clickhouse_postgres_service") return pgSummary(r);
   if (r.type !== "clickhouse_service") return [];
   var c = serviceCompute(r);
   var rows: SummaryRow[] = [];
@@ -104,6 +129,18 @@ function chSummary(r: ProviderResource): SummaryRow[] {
         (c.vcpu ? " \u00b7 " + rangeText(total(c.replicas, c.vcpu)) + " vCPU" : "") });
     }
   }
+  return rows;
+}
+
+/* A Postgres service: instance size, major version, standbys. */
+function pgSummary(r: ProviderResource): SummaryRow[] {
+  var rows: SummaryRow[] = [];
+  var size = asText(r.attrs.size), version = asText(r.attrs.postgres_version);
+  if (size) rows.push({ label: "size", value: size });
+  if (version) rows.push({ label: "postgres", value: version });
+  var ha = pgStandbys(r);
+  if (ha) rows.push({ label: "high availability", value: ha });
+  if (asText(r.attrs.read_replica_of)) rows.push({ label: "role", value: "read replica" });
   return rows;
 }
 
@@ -159,7 +196,10 @@ export const clickhouseProvider: ProviderPlugin = {
   cli: function(){ return []; },
   summary: chSummary,
   tileSubtitle: function(r: ProviderResource, value: string): string {
-    return r.type === "clickhouse_clickpipe" ? pipeSource(r) : value;
+    if (r.type === "clickhouse_clickpipe") return pipeSource(r);
+    if (r.type === "clickhouse_clickpipe_cdc_infrastructure") return cdcSize(r);
+    if (r.type === "clickhouse_postgres_service") return pgTile(r);
+    return value;
   },
   rules: {
     ruleSet: chRuleSet,

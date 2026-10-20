@@ -23,7 +23,8 @@ export interface ViewParams {
 var SAMPLE_ALIASES: Record<string, string> = {
   single: "embedded-plan",
   webapp: "embedded-plan-fullstack",
-  eks: "embedded-plan-eks"
+  eks: "embedded-plan-eks",
+  clickhouse: "embedded-plan-clickhouse"
 };
 var SAMPLE_IDS = Object.keys(SAMPLE_ALIASES).map(function(k: string){ return SAMPLE_ALIASES[k]; });
 

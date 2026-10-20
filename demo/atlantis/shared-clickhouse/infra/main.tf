@@ -48,7 +48,8 @@ variable "name" {
   default = "tfpv-demo"
 }
 
-# Set by the demo MR (shared-clickhouse/revisions.sh), in extra.auto.tfvars.
+# Set by the demo MR (shared-clickhouse/revisions.sh), in extra.auto.tfvars,
+# one per commit.
 variable "reporting" {
   description = "Add a read-only reporting service to the warehouse, reached over the same VPC endpoint"
   type        = bool
@@ -58,6 +59,28 @@ variable "reporting" {
 variable "writer_replicas" {
   type    = number
   default = 3
+}
+
+variable "writer_idle_minutes" {
+  type    = number
+  default = 5
+}
+
+variable "client_instance_type" {
+  type    = string
+  default = "t4g.micro"
+}
+
+variable "events_sort_by_type" {
+  description = "Sort the events table by event_type, then ts; false sorts by ts only"
+  type        = bool
+  default     = true
+}
+
+variable "seed" {
+  description = "The seed file that gives the first load two rows"
+  type        = bool
+  default     = true
 }
 
 provider "aws" {
@@ -176,7 +199,7 @@ data "aws_ssm_parameter" "al2023_arm64" {
 
 resource "aws_instance" "client" {
   ami                         = data.aws_ssm_parameter.al2023_arm64.value
-  instance_type               = "t4g.micro" # free tier
+  instance_type               = var.client_instance_type
   subnet_id                   = aws_subnet.public[0].id
   associate_public_ip_address = true # SSM agent reaches SSM over the internet
   vpc_security_group_ids      = [aws_security_group.client.id]
@@ -209,7 +232,7 @@ resource "clickhouse_service" "main" {
   min_replica_memory_gb = 8
   max_replica_memory_gb = 8
   idle_scaling          = true
-  idle_timeout_minutes  = 5
+  idle_timeout_minutes  = var.writer_idle_minutes
   release_channel       = "default"
   enable_core_dumps     = true
 
@@ -365,7 +388,14 @@ resource "aws_s3_bucket_notification" "events" {
 }
 
 # One file so the initial load has data.
+# the base stack was applied before seed had count
+moved {
+  from = aws_s3_object.seed
+  to   = aws_s3_object.seed[0]
+}
+
 resource "aws_s3_object" "seed" {
+  count        = var.seed ? 1 : 0
   bucket       = aws_s3_bucket.events.id
   key          = "events/0000-seed.json"
   content_type = "application/json"
@@ -440,7 +470,7 @@ resource "clickhouse_clickpipe" "events" {
     managed_table = true
     table_definition = {
       engine      = { type = "MergeTree" }
-      sorting_key = ["event_type", "ts"]
+      sorting_key = var.events_sort_by_type ? ["event_type", "ts"] : ["ts"]
     }
     columns = [
       { name = "id", type = "String" },

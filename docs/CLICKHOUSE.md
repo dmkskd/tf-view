@@ -81,6 +81,12 @@ Source: [examples/full/private_endpoint/aws](https://github.com/ClickHouse/terra
   resource in the customer account.
 - ClickPipes run on ClickPipes compute, not on the service's replicas. Each
   pipe writes to one service (`service_id`).
+- Database ClickPipes (Postgres, MySQL, MongoDB, BigQuery) share CDC workers
+  per service. `clickhouse_clickpipe_cdc_infrastructure` sizes them; its API
+  returns 404 until the first database pipe has provisioned.
+- `clickhouse_postgres_service` (beta) is ClickHouse Managed Postgres. A CDC
+  pipe reads it through `hostname`, `port` and `username`; there is no ID
+  attribute linking the two.
 
 In a plan that creates the service, `service_name` and `private_endpoint_ids`
 are unknown until apply. The reference is still present in
@@ -96,7 +102,8 @@ are unknown until apply. The reference is still present in
     through an IP access list or PrivateLink, the service to S3 through an IAM
     role.
   - `samples/aws-clickhouse-s3-clickpipe/`: applied. S3, SQS notifications
-    and an S3 ClickPipe; queries over PrivateLink.
+    and an S3 ClickPipe; queries over PrivateLink. Managed Postgres
+    replicated by a Postgres CDC ClickPipe.
   - `demo/atlantis/github-clickhouse/`: an Atlantis PR that adds a read-only
     service to the warehouse, then resizes the writer.
 - [x] **2. Provider plugin.** `src/ts/providers/clickhouse/index.ts`.
@@ -106,7 +113,8 @@ are unknown until apply. The reference is still present in
     `registry.opentofu.org` equivalent. The plan JSON writes the address in
     lower case.
   - `settingKeys: ["organization_id"]`.
-  - Icons: `database` (services), `pipe`, `clock`, `query`.
+  - Icons: `database` (services), `pipe`, `chip` (CDC infrastructure),
+    `clock`, `query`.
 - [x] **3. Catalog.**
 
   | Type | Kind | Preview |
@@ -115,6 +123,8 @@ are unknown until apply. The reference is still present in
   | `clickhouse_service_private_endpoints_attachment` | node | `private_endpoint_ids` |
   | `clickhouse_private_endpoint_registration` | node | `private_endpoint_id`, `cloud_provider`, `region` |
   | `clickhouse_clickpipe` | node, subtitle `source` | `name`, `stopped` |
+  | `clickhouse_clickpipe_cdc_infrastructure` | node, subtitle vCPU and GiB | `replica_cpu_millicores`, `replica_memory_gb` |
+  | `clickhouse_postgres_service` | node, subtitle size and version | `cloud_provider`, `region`, `hostname`; size, version and standbys from `summary` |
   | `clickhouse_clickpipes_reverse_private_endpoint` | node, subtitle `type` | `type`, endpoint service name, MSK or VPC Lattice ID |
   | `clickhouse_api_key`, `clickhouse_role`, `clickhouse_organization_settings` | node, global scope | |
   | `clickhouse_role_assignment`, `clickhouse_udf_attachment` | assoc | |
@@ -127,9 +137,11 @@ are unknown until apply. The reference is still present in
   service references another through `warehouse_id`, or both have the same
   known `warehouse_id`. A single service gets no warehouse box. Each service
   is a box containing its settings (private endpoint attachment, upgrade
-  window, scheduled scaling, queries). ClickPipes, CDC infrastructure and
-  reverse private endpoints sit in the location box next to the warehouse,
-  with a line to their service. Organization resources go to Global. The
+  window, scheduled scaling, queries). Each location box contains three
+  boxes: Managed ClickHouse (services and warehouses), ClickPipes (pipes, CDC
+  infrastructure, reverse private endpoints, each with a line to its
+  service) and Managed Postgres, one per row. Organization resources go to
+  Global. The
   Region box label uses the optional `regionNote` plugin field ("per
   service").
 - [x] **6. Cross-provider edge.** The VPC endpoint gets one line into the
