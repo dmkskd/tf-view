@@ -19,6 +19,7 @@ tfplan*
 *.plan
 .terraform/
 terraform.tfstate*
+.terraform.tfstate.lock.info
 # .terraform.lock.hcl is intentionally NOT ignored — Terraform's own
 # convention is to commit it for reproducible provider version selection.
 

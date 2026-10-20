@@ -1,0 +1,21 @@
+{"format_version":"1.2","terraform_version":"1.9.0",
+ "variables":{"gregion":{"value":"europe-west1"}},
+ "configuration":{"provider_config":{
+   "aws":{"name":"aws","full_name":"registry.terraform.io/hashicorp/aws","expressions":{"region":{"constant_value":"eu-west-1"}}},
+   "google":{"name":"google","full_name":"registry.terraform.io/hashicorp/google","expressions":{"project":{"constant_value":"demo-proj"},"region":{"references":["var.gregion"]}}}},
+  "root_module":{"resources":[
+   {"address":"aws_vpc.main","type":"aws_vpc","name":"main","mode":"managed","expressions":{}},
+   {"address":"aws_subnet.a","type":"aws_subnet","name":"a","mode":"managed","expressions":{"vpc_id":{"references":["aws_vpc.main.id","aws_vpc.main"]}}},
+   {"address":"aws_instance.web","type":"aws_instance","name":"web","mode":"managed","expressions":{"subnet_id":{"references":["aws_subnet.a.id","aws_subnet.a"]}}},
+   {"address":"google_compute_network.net","type":"google_compute_network","name":"net","mode":"managed","expressions":{}},
+   {"address":"google_compute_subnetwork.sub","type":"google_compute_subnetwork","name":"sub","mode":"managed","expressions":{"network":{"references":["google_compute_network.net.id","google_compute_network.net"]}}},
+   {"address":"google_compute_instance.vm","type":"google_compute_instance","name":"vm","mode":"managed","expressions":{"network_interface":[{"subnetwork":{"references":["google_compute_subnetwork.sub.id","google_compute_subnetwork.sub"]}}]}},
+   {"address":"google_storage_bucket.b","type":"google_storage_bucket","name":"b","mode":"managed","expressions":{}}]}},
+ "resource_changes":[
+  {"address":"aws_vpc.main","type":"aws_vpc","name":"main","mode":"managed","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["create"],"after":{"cidr_block":"10.0.0.0/16"}}},
+  {"address":"aws_subnet.a","type":"aws_subnet","name":"a","mode":"managed","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["create"],"after":{"cidr_block":"10.0.1.0/24","availability_zone":"eu-west-1a"}}},
+  {"address":"aws_instance.web","type":"aws_instance","name":"web","mode":"managed","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["create"],"after":{"instance_type":"t3.micro"}}},
+  {"address":"google_compute_network.net","type":"google_compute_network","name":"net","mode":"managed","provider_name":"registry.terraform.io/hashicorp/google","change":{"actions":["create"],"after":{"name":"net"}}},
+  {"address":"google_compute_subnetwork.sub","type":"google_compute_subnetwork","name":"sub","mode":"managed","provider_name":"registry.terraform.io/hashicorp/google","change":{"actions":["create"],"after":{"name":"sub","ip_cidr_range":"10.1.0.0/24"}}},
+  {"address":"google_compute_instance.vm","type":"google_compute_instance","name":"vm","mode":"managed","provider_name":"registry.terraform.io/hashicorp/google","change":{"actions":["create"],"after":{"name":"vm-1","machine_type":"e2-small","zone":"europe-west1-b"}}},
+  {"address":"google_storage_bucket.b","type":"google_storage_bucket","name":"b","mode":"managed","provider_name":"registry.terraform.io/hashicorp/google","change":{"actions":["create"],"after":{"name":"bucket-1","location":"EU"}}}]}

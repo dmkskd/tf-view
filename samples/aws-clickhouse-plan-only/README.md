@@ -16,5 +16,6 @@ API key with a custom role, a Query API endpoint and a saved query.
 Both providers use fake credentials. `just plan` makes no API call. Apply is
 not supported.
 
-`tools/check-layout.js` and `tools/check-parse.js` include `plan.json`.
-Regenerate it with `just json`, then re-record the baselines.
+`tools/check-layout.js` and `tools/check-parse.js` read a copy,
+`tools/fixtures/clickhouse-plan-only.json`. After `just json`, copy
+`plan.json` there and re-record the baselines.

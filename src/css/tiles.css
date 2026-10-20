@@ -55,6 +55,10 @@
   .grp.cluster{border:1.3px solid var(--cat-compute); border-radius:9px;
     background:color-mix(in srgb, var(--cat-compute) 4%, transparent);}
   .grp.cluster > .grp-hd{color:var(--cat-compute);}
+  /* a database service box (ClickHouse): the db colour of its icon */
+  .grp.cluster.service{border-color:var(--cat-db);
+    background:color-mix(in srgb, var(--cat-db) 4%, transparent);}
+  .grp.cluster.service > .grp-hd{color:var(--cat-db);}
   .grp.loose{border:1.3px dashed var(--line); background:var(--surface-2);}
   .grp.loose > .grp-hd{color:var(--muted);}
 

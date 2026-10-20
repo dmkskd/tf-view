@@ -19,8 +19,8 @@ const { parsePlan, buildTree, tileHeight, setTileHeight } = app.exports;
 
 const plans = {
   sample: app.samplePlan(),
-  mixed: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/mixed-aws-gcp/plan.json", "utf8")),
-  clickhouse: JSON.parse(require("fs").readFileSync(__dirname + "/../samples/aws-clickhouse-plan-only/plan.json", "utf8")),
+  mixed: JSON.parse(require("fs").readFileSync(__dirname + "/fixtures/mixed-aws-gcp.json", "utf8")),
+  clickhouse: JSON.parse(require("fs").readFileSync(__dirname + "/fixtures/clickhouse-plan-only.json", "utf8")),
 };
 const modes = [
   {mode:"all", showAssoc:false, showUnsup:true, edges:"select"},

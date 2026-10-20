@@ -96,7 +96,8 @@ are unknown until apply. The reference is still present in
 
 - [x] **1. Samples.**
   - `samples/aws-clickhouse-plan-only/`: 44 resources (28 AWS, 16
-    ClickHouse), generated offline with fake credentials. Included in
+    ClickHouse), generated offline with fake credentials. A copy,
+    `tools/fixtures/clickhouse-plan-only.json`, is read by
     `tools/check-layout.js` and `tools/check-parse.js`.
   - `samples/aws-clickhouse-connectivity/`: applied. EC2 to the service
     through an IP access list or PrivateLink, the service to S3 through an IAM
