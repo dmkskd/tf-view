@@ -1,6 +1,7 @@
 {
   "name": "tfplanview",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "Render any Terraform plan as a native AWS architecture diagram — modular dev-time architecture, single-file self-contained distribution",
   "scripts": {
     "dev": "vite src",

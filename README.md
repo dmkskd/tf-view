@@ -56,3 +56,7 @@ The optional `explain` command adds model-generated review annotations. See the 
 - Unrecognised and unplaced resources are listed under Validation.
 
 See [Development](docs/DEVELOPMENT.md) to modify or verify the app.
+
+## License
+
+[Apache License 2.0](LICENSE). The bundled fonts are under the SIL Open Font License 1.1 (see [src/fonts](src/fonts/README.md)).
