@@ -8,6 +8,8 @@ The web page uses a Terraform plan JSON file as input and does not make any AWS 
 
 Designed as a single html page - available at [https://dmkskd.github.io/tf-view/](https://dmkskd.github.io/tf-view/)
 
+*tf plan* Pull Request example integrated in Atlantis: [tf-view-demo](https://github.com/dmkskd/tf-view-demo/pull/30)
+
 ## How to use
 
 1. Generate the `terraform` json plan
