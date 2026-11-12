@@ -9,14 +9,14 @@ default:
 
 # Start Vite development server with hot module replacement (HMR)
 dev port="3000":
-    npx vite src --port {{port}}
+    npx vite --config vite.config.mjs --port {{port}}
 
 # Build the single self-contained HTML asset (dist/index.html)
 build: typecheck
     node scripts/build-single-html.js
 
 # Run the entire test suite and regression baselines
-test: typecheck build test-unit test-boot test-render test-links test-csp test-providers test-pure test-parse test-layout
+test: typecheck build test-unit test-boot test-render test-samples test-links test-csp test-providers test-pure test-parse test-layout
     @echo "✅ All tests and regression baselines passed!"
 
 # Run unit assertions (optional suite filter, e.g. `just test-unit placement`)
@@ -30,6 +30,10 @@ test-boot:
 # Run headless DOM interactive render check
 test-render:
     node tools/check-render.js
+
+# Check every sample using HTML served by Vite and the standalone build
+test-samples: build
+    node tools/check-samples.js
 
 # Check the console-link guard against hostile plans
 test-links:

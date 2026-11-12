@@ -459,9 +459,7 @@ function loadSample(id: string): void {
   catch(e){ loadText(t, label); }
 }
 
-/* Sample picker: a button (its label always just reads "Sample", it is not
-   a status indicator) that opens a small menu of the bundled plans, reusing
-   the same floating-menu look as the canvas context menu. */
+/* Sample picker: bundled plans load here; the Atlantis example opens on GitHub. */
 var sampleBtn = $("sampleBtn") as HTMLButtonElement | null;
 var sampleMenu = $("sampleMenu");
 var emptySampleBtn = $("emptySampleBtn");
@@ -474,6 +472,10 @@ function closeSampleMenu(): void {
 function openSampleMenu(): void {
   if (!sampleBtn || !sampleMenu) return;
   sampleMenu.innerHTML = "";
+  var embedded = document.createElement("div");
+  embedded.setAttribute("role", "group");
+  embedded.setAttribute("aria-labelledby", "sampleEmbeddedHeading");
+  embedded.innerHTML = '<div class="sample-heading" id="sampleEmbeddedHeading">Built-in plans</div>';
   SAMPLE_MENU_ITEMS.forEach(function(item){
     var id = item[0], label = item[1];
     var b = document.createElement("button");
@@ -483,13 +485,24 @@ function openSampleMenu(): void {
       closeSampleMenu();
       loadSample(id);
     });
-    sampleMenu!.appendChild(b);
+    embedded.appendChild(b);
   });
+  sampleMenu.appendChild(embedded);
+  var integration = document.createElement("div");
+  integration.className = "sample-integration";
+  integration.setAttribute("role", "group");
+  integration.setAttribute("aria-labelledby", "sampleAtlantisHeading");
+  integration.innerHTML = '<div class="sample-heading" id="sampleAtlantisHeading">In a pull request</div>'
+    + '<a href="https://github.com/dmkskd/tf-view-demo/pull/30" target="_blank" rel="noopener noreferrer" title="Open the Atlantis example on GitHub (new tab)">'
+    + '<span>Atlantis demo</span><span class="sample-destination">GitHub</span>'
+    + '<svg class="sample-external" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5L7 9M6 3.5H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V10"/></svg></a>';
+  integration.querySelector("a")!.addEventListener("click", closeSampleMenu);
+  sampleMenu.appendChild(integration);
   var r = sampleBtn.getBoundingClientRect();
   sampleMenu.hidden = false;
   sampleBtn.setAttribute("aria-expanded", "true");
   var w = sampleMenu.offsetWidth;
-  sampleMenu.style.left = Math.min(r.left, window.innerWidth - w - 8) + "px";
+  sampleMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
   sampleMenu.style.top = (r.bottom + 6) + "px";
 }
 

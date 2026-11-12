@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 const crypto = require("crypto");
+const { samplePlanTags } = require("./sample-plans.js");
 
 console.log("📦 Building single self-contained HTML asset for tfview...");
 
@@ -56,16 +57,9 @@ console.log(`  ✓ Inlined fonts (${(fontBytes / 1024).toFixed(0)} KB)`);
 
 // 2. Read the embedded JSON data and remove its whitespace
 const kindsData = fs.readFileSync(path.join(SRC_DIR, "data", "collection-kinds.json"), "utf8").trim();
-const planData = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan.json"), "utf8").trim();
-const planDataFullstack = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-fullstack.json"), "utf8").trim();
-const planDataEks = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-eks.json"), "utf8").trim();
-const planDataClickhouse = fs.readFileSync(path.join(SRC_DIR, "data", "sample-plan-clickhouse.json"), "utf8").trim();
 
 const minKinds = JSON.stringify(JSON.parse(kindsData));
-const minPlan = JSON.stringify(JSON.parse(planData));
-const minPlanFullstack = JSON.stringify(JSON.parse(planDataFullstack));
-const minPlanEks = JSON.stringify(JSON.parse(planDataEks));
-const minPlanClickhouse = JSON.stringify(JSON.parse(planDataClickhouse));
+const samplePlans = samplePlanTags();
 
 // 3. Bundle the TypeScript with esbuild, starting from main.ts. esbuild places
 // all modules in one function scope and renames names that clash. A module
@@ -146,10 +140,7 @@ ${bodyMarkup}
 <!-- dedicated container for CLI-injected plans so samples are never overwritten -->
 <script type="application/json" id="injected-plan"></script>
 <!-- bundled sample plans for offline testing and demos -->
-<script type="application/json" id="embedded-plan">${minPlan}</script>
-<script type="application/json" id="embedded-plan-fullstack">${minPlanFullstack}</script>
-<script type="application/json" id="embedded-plan-eks">${minPlanEks}</script>
-<script type="application/json" id="embedded-plan-clickhouse">${minPlanClickhouse}</script>
+${samplePlans}
 </body>
 </html>
 `;
@@ -167,7 +158,7 @@ function formatBytes(bytes) {
 const finalSize = Buffer.byteLength(singleHtml, "utf8");
 const jsSize = Buffer.byteLength(jsBundle, "utf8");
 const cssSize = Buffer.byteLength(cssContent, "utf8");
-const dataSize = Buffer.byteLength(minKinds + minPlan, "utf8");
+const dataSize = Buffer.byteLength(minKinds + samplePlans, "utf8");
 const htmlMarkupSize = finalSize - jsSize - cssSize - dataSize;
 
 const gzSize = zlib.gzipSync(Buffer.from(singleHtml, "utf8")).length;
